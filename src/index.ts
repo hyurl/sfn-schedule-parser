@@ -158,13 +158,14 @@ export function parseStatement(str: string): ScheduleInfo {
     let re2 = /(every)\s+(\w+)/i;
     let re3 = /today|tomorrow|the\s+day\s+after\s+(.+)/i;
     let props = Object.keys(info);
-    let units = ["day", "month", "year", "week"];
+    let units1 = ["day", "month", "year", "week"];
+    let units2 = ["hours", "minute", "seconds"];
     let prep: string;
     let num: number;
     let unit: string;
     let prop: string;
 
-    props.pop();
+    props.splice(props.length - 2);
 
     let match = re1.exec(str) || re2.exec(str) || re3.exec(str);
     if (match) {
@@ -206,7 +207,9 @@ export function parseStatement(str: string): ScheduleInfo {
 
     if (num > 1 && unit[unit.length - 1] === "s") {
         let _unit = unit.substring(0, unit.length - 1);
-        unit = units.includes(_unit) ? _unit : unit;
+        unit = units1.includes(_unit) ? _unit : unit;
+    } else if (num === 1 && units2.includes(unit)) {
+        unit += "s";
     }
 
     if (unit == "day" || unit == "week")
@@ -270,7 +273,7 @@ export function toTime(info: ScheduleInfo): number {
     let current = getDateInfo();
     let copy = Object.assign({}, info);
     for (let i in info) {
-        if(info[i] === undefined)
+        if (info[i] === undefined)
             copy[i] = current[i];
         else
             copy[i] = info[i];
@@ -281,6 +284,6 @@ export function toTime(info: ScheduleInfo): number {
 
 /** Automatically applies increment of the schedule information. */
 export function applyIncrement(info: ScheduleInfo) {
-    if(info.increment && !info.once)
+    if (info.increment && !info.once)
         info[info.increment[0]] += info.increment[1];
 }

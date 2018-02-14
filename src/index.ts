@@ -42,7 +42,7 @@ function getDateInfo(): ScheduleInfo {
         day: dateTime.getDay(),
         date: dateTime.getDate(),
         hours: dateTime.getHours(),
-        minutes: dateTime.getHours(),
+        minutes: dateTime.getMinutes(),
         seconds: dateTime.getSeconds()
     };
 }
@@ -124,7 +124,7 @@ export function parseDateTime(pattern: string): ScheduleInfo {
                 continue;
             }
 
-            if (!isNaN(<any>part) || part.substring(part.length - 2) === "th") {
+            if (part.substring(part.length - 2) === "th") {
                 let num = parseInt(part) || -1;
                 if (info.date === undefined)
                     info.date = num >= 1 && num <= 31 ? num : undefined;

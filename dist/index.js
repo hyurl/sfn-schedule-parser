@@ -19,7 +19,7 @@ function getDateInfo() {
         day: dateTime.getDay(),
         date: dateTime.getDate(),
         hours: dateTime.getHours(),
-        minutes: dateTime.getHours(),
+        minutes: dateTime.getMinutes(),
         seconds: dateTime.getSeconds()
     };
 }
@@ -75,7 +75,7 @@ function parseDateTime(pattern) {
                 info.month = i + 1;
                 continue;
             }
-            if (!isNaN(part) || part.substring(part.length - 2) === "th") {
+            if (part.substring(part.length - 2) === "th") {
                 let num = parseInt(part) || -1;
                 if (info.date === undefined)
                     info.date = num >= 1 && num <= 31 ? num : undefined;

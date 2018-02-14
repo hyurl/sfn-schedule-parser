@@ -11,7 +11,7 @@ exports.ScheduleInfo = {
     once: undefined,
     increment: undefined
 };
-function getDateInfo() {
+function getCurrentInfo() {
     let dateTime = new Date();
     return {
         year: dateTime.getFullYear(),
@@ -22,6 +22,44 @@ function getDateInfo() {
         minutes: dateTime.getMinutes(),
         seconds: dateTime.getSeconds()
     };
+}
+function correctInfo(info) {
+    let current = getCurrentInfo();
+    let bigMonths = [1, 3, 5, 7, 8, 10, 12];
+    if (info.seconds > 59) {
+        info.minutes = current.minutes + Math.floor(info.seconds / 60);
+        info.seconds %= 60;
+    }
+    if (info.minutes > 59) {
+        info.hours = current.hours + Math.floor(info.minutes / 60);
+        info.minutes %= 60;
+    }
+    if (info.hours > 23) {
+        info.date = current.date + Math.floor(info.hours / 24);
+        info.hours %= 24;
+    }
+    if (info.month == 2) {
+        if ((!info.year || info.year % 4) && info.date > 28) {
+            info.month = current.month + Math.floor(info.date / 28);
+            info.date %= 28;
+        }
+        else if (info.date > 29) {
+            info.month = current.month + Math.floor(info.date / 29);
+            info.date %= 29;
+        }
+    }
+    else if (bigMonths.includes(info.month) && info.date > 31) {
+        info.month = current.month + Math.floor(info.date / 31);
+        info.date %= 31;
+    }
+    else if (info.date > 30) {
+        info.month = current.month + Math.floor(info.date / 30);
+        info.date %= 30;
+    }
+    if (info.month > 12) {
+        info.year = current.year + Math.floor(info.month / 12);
+        info.month %= 12;
+    }
 }
 const Weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const Weekdays2 = ["Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"];
@@ -93,7 +131,7 @@ function parseStatement(str) {
     let re2 = /(every)\s+(\w+)/i;
     let re3 = /today|tomorrow|the\s+day\s+after\s+(.+)/i;
     let props = Object.keys(info);
-    let units1 = ["day", "month", "year", "week"];
+    let units1 = ["days", "months", "years", "weeks"];
     let units2 = ["hour", "minute", "second"];
     let prep;
     let num;
@@ -114,6 +152,7 @@ function parseStatement(str) {
                 if (i >= 0) {
                     info.day = i;
                     info.once = false;
+                    return info;
                 }
                 else {
                     num = 1;
@@ -142,23 +181,23 @@ function parseStatement(str) {
         }
     }
     num = num > 0 ? num : undefined;
-    if (num > 1 && unit[unit.length - 1] === "s") {
-        let _unit = unit.substring(0, unit.length - 1);
-        unit = units1.includes(_unit) ? _unit : unit;
+    if (num > 1 && units1.includes(unit)) {
+        unit = unit.substring(0, unit.length - 1);
     }
     else if (num === 1 && units2.includes(unit)) {
         unit += "s";
     }
-    if (unit == "day" || unit == "week")
+    if (unit == "day" || unit == "week") {
         prop = "date";
-    else
+        if (unit == "week")
+            num = num * 7;
+    }
+    else {
         prop = unit;
+    }
     if (num && props.includes(prop)) {
-        let current = getDateInfo();
+        let current = getCurrentInfo();
         if (prep === "in" || prep === "after") {
-            if (unit == "week") {
-                num = num * 7;
-            }
             num = prep == "in" ? num : (num + 1);
             info[prop] = current[prop] + num;
             info.once = true;
@@ -168,6 +207,7 @@ function parseStatement(str) {
             info[prop] = current[prop];
             info.increment = [prop, num];
         }
+        correctInfo(info);
     }
     return info;
 }
@@ -191,7 +231,7 @@ function parse(str) {
 }
 exports.parse = parse;
 function toTime(info) {
-    let current = getDateInfo();
+    let current = getCurrentInfo();
     let copy = Object.assign({}, info);
     for (let i in info) {
         if (info[i] === undefined)
@@ -204,7 +244,9 @@ function toTime(info) {
 }
 exports.toTime = toTime;
 function applyIncrement(info) {
-    if (info.increment && !info.once)
+    if (info.increment && !info.once) {
         info[info.increment[0]] += info.increment[1];
+        correctInfo(info);
+    }
 }
 exports.applyIncrement = applyIncrement;

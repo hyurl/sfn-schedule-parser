@@ -107,7 +107,7 @@ const { parse, toTime, applyIncrement } = require("sfn-schedule-parser");
 var info = parse("20:00 every day");
 
 let func = info.once ? setTimeout : setInterval;
-let scheduler = () => {
+let timer = func(() => {
     let target = Math.round(toTime(info) / 1000),
         current = Math.round(Date.now() / 1000);
 
@@ -115,10 +115,7 @@ let scheduler = () => {
         // ...
         applyIncrement(info);
     }
-};
-let timer = func(scheduler, 500);
-
-scheduler(); // Must run the scheduler before timeout.
+}, 500);
 ```
 
 **Warning:** if you're going to use `process.nextTick()`, make sure that your 

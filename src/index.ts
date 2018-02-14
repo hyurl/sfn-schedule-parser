@@ -34,7 +34,7 @@ export const ScheduleInfo: ScheduleInfo = {
     increment: undefined
 };
 
-function getDateInfo(): ScheduleInfo {
+function getCurrentInfo(): ScheduleInfo {
     let dateTime = new Date();
     return {
         year: dateTime.getFullYear(),
@@ -45,6 +45,42 @@ function getDateInfo(): ScheduleInfo {
         minutes: dateTime.getMinutes(),
         seconds: dateTime.getSeconds()
     };
+}
+
+function correctInfo(info: ScheduleInfo) {
+    let current = getCurrentInfo();
+    let bigMonths = [1, 3, 5, 7, 8, 10, 12];
+    if (info.seconds > 59) {
+        info.minutes = current.minutes + Math.floor(info.seconds / 60);
+        info.seconds %= 60;
+    }
+    if (info.minutes > 59) {
+        info.hours = current.hours + Math.floor(info.minutes / 60);
+        info.minutes %= 60;
+    }
+    if (info.hours > 23) {
+        info.date = current.date + Math.floor(info.hours / 24);
+        info.hours %= 24;
+    }
+    if (info.month == 2) {
+        if ((!info.year || info.year % 4) && info.date > 28) {
+            info.month = current.month + Math.floor(info.date / 28);
+            info.date %= 28;
+        } else if (info.date > 29) {
+            info.month = current.month + Math.floor(info.date / 29);
+            info.date %= 29;
+        }
+    } else if (bigMonths.includes(info.month) && info.date > 31) {
+        info.month = current.month + Math.floor(info.date / 31);
+        info.date %= 31;
+    } else if (info.date > 30) {
+        info.month = current.month + Math.floor(info.date / 30);
+        info.date %= 30;
+    }
+    if (info.month > 12) {
+        info.year = current.year + Math.floor(info.month / 12);
+        info.month %= 12;
+    }
 }
 
 const Weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -140,8 +176,7 @@ export function parseDateTime(pattern: string): ScheduleInfo {
 /**
  * Parses statements in human language.
  * @param str The number in the string must be decimal, and must be a certain 
- *  time or period, uncertain statement like `every week`, `every month` are 
- *  not supported.
+ *  date or period.
  * @example
  *  parseStatement('every 2 hours')
  *  parseStatement('in 2 hours')
@@ -158,7 +193,7 @@ export function parseStatement(str: string): ScheduleInfo {
     let re2 = /(every)\s+(\w+)/i;
     let re3 = /today|tomorrow|the\s+day\s+after\s+(.+)/i;
     let props = Object.keys(info);
-    let units1 = ["day", "month", "year", "week"];
+    let units1 = ["days", "months", "years", "weeks"];
     let units2 = ["hour", "minute", "second"];
     let prep: string;
     let num: number;
@@ -177,9 +212,10 @@ export function parseStatement(str: string): ScheduleInfo {
             if (match[1] === "every") { // match re2
                 prep = "every";
                 let i = Weekdays.indexOf(match[2]);
-                if (i >= 0) {
+                if (i >= 0) { // match weekays
                     info.day = i;
                     info.once = false;
+                    return info;
                 } else {
                     num = 1;
                     unit = match[2].toLowerCase();
@@ -198,6 +234,7 @@ export function parseStatement(str: string): ScheduleInfo {
                     unit = parts[1].toLowerCase();
                 }
             }
+
             prep = prep || "in";
             unit = unit || "day";
         }
@@ -205,25 +242,24 @@ export function parseStatement(str: string): ScheduleInfo {
 
     num = num > 0 ? num : undefined;
 
-    if (num > 1 && unit[unit.length - 1] === "s") {
-        let _unit = unit.substring(0, unit.length - 1);
-        unit = units1.includes(_unit) ? _unit : unit;
+    if (num > 1 && units1.includes(unit)) {
+        unit = unit.substring(0, unit.length - 1); // plural to singular
     } else if (num === 1 && units2.includes(unit)) {
-        unit += "s";
+        unit += "s"; // singular to plural
     }
 
-    if (unit == "day" || unit == "week")
+    if (unit == "day" || unit == "week") {
         prop = "date";
-    else
+        if (unit == "week")
+            num = num * 7;
+    } else {
         prop = unit;
+    }
 
     if (num && props.includes(prop)) {
-        let current = getDateInfo();
+        let current = getCurrentInfo();
 
         if (prep === "in" || prep === "after") { // in... or after...
-            if (unit == "week") {
-                num = num * 7;
-            }
             num = prep == "in" ? num : (num + 1);
             info[prop] = current[prop] + num;
             info.once = true;
@@ -232,6 +268,8 @@ export function parseStatement(str: string): ScheduleInfo {
             info[prop] = current[prop];
             info.increment = [prop, num];
         }
+
+        correctInfo(info);
     }
 
     return info;
@@ -270,7 +308,7 @@ export function parse(str: string): ScheduleInfo {
  * @param info If a property is undefined, the current date-time will be used.
  */
 export function toTime(info: ScheduleInfo): number {
-    let current = getDateInfo();
+    let current = getCurrentInfo();
     let copy = Object.assign({}, info);
     for (let i in info) {
         if (info[i] === undefined)
@@ -284,6 +322,8 @@ export function toTime(info: ScheduleInfo): number {
 
 /** Automatically applies increment of the schedule information. */
 export function applyIncrement(info: ScheduleInfo) {
-    if (info.increment && !info.once)
+    if (info.increment && !info.once) {
         info[info.increment[0]] += info.increment[1];
+        correctInfo(info);
+    }
 }

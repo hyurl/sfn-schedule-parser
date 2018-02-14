@@ -41,8 +41,8 @@ console.log(parse('*:00 every Monday'));
 
 ## Returning Values
 
-All three functions return an object (interface `ScheduleInfo` in TypeScript) 
-that carries these information:
+All three functions return an object (type `ScheduleInfo` in TypeScript) that 
+carries these information:
 
 - `year: number` 2018+
 - `month: number` `1` - `12`.

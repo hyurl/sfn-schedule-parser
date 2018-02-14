@@ -159,7 +159,7 @@ export function parseStatement(str: string): ScheduleInfo {
     let re3 = /today|tomorrow|the\s+day\s+after\s+(.+)/i;
     let props = Object.keys(info);
     let units1 = ["day", "month", "year", "week"];
-    let units2 = ["hours", "minute", "seconds"];
+    let units2 = ["hour", "minute", "second"];
     let prep: string;
     let num: number;
     let unit: string;

@@ -1,0 +1,25 @@
+{
+  "name": "sfn-schedule-parser",
+  "version": "0.1.0",
+  "description": "A simple friendly Node.js tool for parsing schedule string patterns.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "node test"
+  },
+  "keywords": [
+    "sfn",
+    "schedule",
+    "parser"
+  ],
+  "author": {
+    "name": "Ayon Lee",
+    "email": "i@hyurl.com",
+    "url": "http://hyurl.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hyurl/sfn-schedule-parser.git"
+  },
+  "license": "MIT"
+}

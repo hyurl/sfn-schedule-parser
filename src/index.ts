@@ -276,7 +276,7 @@ export function toTime(info: ScheduleInfo): number {
             copy[i] = info[i];
     }
     let { year, month, date, hours, minutes, seconds } = copy;
-    return new Date(year, month, date, hours, minutes, seconds).getTime();
+    return new Date(year, month - 1, date, hours, minutes, seconds).getTime();
 }
 
 /** Automatically applies increment of the schedule information. */

@@ -117,3 +117,6 @@ let timer = func(() => {
     }
 }, 500);
 ```
+
+**Warning:** if you're going to use `process.nextTick()`, make sure that your 
+program will hang until the schedule is called.

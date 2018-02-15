@@ -47,7 +47,31 @@ const getNum = (num) => {
 };
 const state = Symbol("state");
 class ScheduleInfo {
-    get state() {
+    constructor(pattern) {
+        if (typeof pattern === "string") {
+            for (let prop of Props) {
+                this[prop] = undefined;
+            }
+            this.increment = undefined;
+            this.parseDateTime(pattern);
+            this.parseStatement(pattern);
+            this.once = this.increment === undefined
+                && /\*[\/\-:]|[\/\-:]\*/.test(pattern) === false;
+        }
+        else {
+            this.year = pattern && pattern.getFullYear();
+            this.week = pattern && currentWeek(pattern);
+            this.day = pattern && pattern.getDay();
+            this.month = pattern && pattern.getMonth() + 1;
+            this.date = pattern && pattern.getDate();
+            this.hours = pattern && pattern.getHours();
+            this.minutes = pattern && pattern.getMinutes();
+            this.seconds = pattern && pattern.getSeconds();
+            this.increment = undefined;
+            this.once = true;
+        }
+    }
+    getState() {
         if (this[state] == -1)
             return -1;
         let stat = -1;
@@ -93,29 +117,8 @@ class ScheduleInfo {
         return stat;
     }
     ;
-    constructor(pattern) {
-        if (typeof pattern === "string") {
-            for (let prop of Props) {
-                this[prop] = undefined;
-            }
-            this.increment = undefined;
-            this.parseDateTime(pattern);
-            this.parseStatement(pattern);
-            this.once = this.increment === undefined
-                && /\*[\/\-:]|[\/\-:]\*/.test(pattern) === false;
-        }
-        else {
-            this.year = pattern && pattern.getFullYear();
-            this.week = pattern && currentWeek(pattern);
-            this.day = pattern && pattern.getDay();
-            this.month = pattern && pattern.getMonth() + 1;
-            this.date = pattern && pattern.getDate();
-            this.hours = pattern && pattern.getHours();
-            this.minutes = pattern && pattern.getMinutes();
-            this.seconds = pattern && pattern.getSeconds();
-            this.increment = undefined;
-            this.once = true;
-        }
+    get state() {
+        return this.getState();
     }
     parseDateTime(pattern) {
         let parts = pattern.split(/[\.\s]+/);

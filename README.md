@@ -45,12 +45,19 @@ The `parse()` function returns an `ScheduleInfo` that carries these
 information:
 
 - `year: number | "*"` 2018+
-- `month: number | "*"` `1` - `12`.
-- `day: number | "*"` Day of week, `0` - `6`, `0` represents Sunday.
-- `date: number | "*"` Day of month, `1` - `31`.
-- `hours: number | "*"` `0` - `23`.
-- `minutes: number | "*"` `0` - `59`.
-- `seconds: number | "*"` `0` - `59`.
+- `month: number | "*"` 1 - 12.
+- `day: number | "*"` Day of week, 0 - 6, 0 represents Sunday.
+- `date: number | "*"` Day of month, 1 - 31.
+- `hours: number | "*"` 0 - 23.
+- `minutes: number | "*"` 0 - 59.
+- `seconds: number | "*"` 0 - 59.
+- `increment: [string, number]` When in an `every...` phrase, this property 
+    carries the target property name and interval value to be increased. e.g.
+    - `every day` => `['date', 1]`;
+    - `every 2 hours` => `['hours', 2]`;
+    - `every 5 minutes` => `['minutes', 5]`;
+- `once`Whether the schedule should run only once.
+
 
 If any of these properties isn't set, it's value would be `undefined`; if the 
 parsing pattern contains any asterisks (`*`), the corresponding property will 
@@ -58,7 +65,7 @@ be set to `*`.
 
 ### The state of a schedule
 
-The getter property `state` indicates the position of the schedule, possible 
+The method `getState()` returns the position of the schedule, possible 
 values are:
 
 - `-1` expired, the schedule should stop now.
@@ -79,10 +86,14 @@ const { parse } = require("sfn-schedule-parser");
 var info = parse("20:00 every day");
 
 let timer = setInterval(() => {
-    let state = info.state; // it's better to call info.state just once.
+    let state = info.getState(); // it's better to call info.state just once.
     if (state === 0) {
         // ...
-        info.update(); // update the schedule info.
+        if (info.once) {
+            clearInterval(timer);
+        } else {
+            info.update(); // update the schedule info.
+        }
     } else if (state === -1) {
         clearInterval(timer);
     }

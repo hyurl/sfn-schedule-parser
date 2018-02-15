@@ -21,5 +21,8 @@
     "type": "git",
     "url": "git+https://github.com/hyurl/sfn-schedule-parser.git"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "current-week-number": "^1.0.7"
+  }
 }

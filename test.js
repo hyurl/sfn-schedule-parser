@@ -18,6 +18,15 @@ console.log(parse('tomorrow'));
 console.log(parse('the day after tomorrow'));
 console.log(parse('the day after 2 days'));
 
-console.log(parse('20:00 every day'));
+console.log(parse('20:00 every 2 seconds in today'));
 // 0 minutes of every hour on every Monday.
 console.log(parse('*:00 every Monday'));
+
+console.log(parse("at 2:00 on Sunday in this week"));
+
+var info = parse("2018-1-15");
+console.log(info);
+console.log(info.state);
+console.log(info);
+info.update();
+console.log(info);

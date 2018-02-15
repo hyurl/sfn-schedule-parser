@@ -1,3 +1,5 @@
+const currentWeek: (arg?: string | Date) => number = require("current-week-number");
+
 const Months = [
     "Jan",
     "Feb",
@@ -22,16 +24,38 @@ const Weekdays = [
     "Saturday"
 ];
 const Weekdays2 = ["Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"];
-const Props = ["year", "month", "day", "date", "hours", "minutes", "seconds"];
-const increment = Symbol("increment");
+const Props = [
+    "year",
+    "week",
+    "day",
+    "month",
+    "date",
+    "hours",
+    "minutes",
+    "seconds"
+];
+
+const getNum = (num) => {
+    if (num === "*") {
+        num = num;
+    } else {
+        num = parseInt(num);
+        num = isNaN(num) ? -1 : num;
+    }
+    return num as number | "*";
+};
+
+const state = Symbol("state");
 
 export class ScheduleInfo {
     /** 2018+ */
     year: number | "*";
-    /** `1` - `12`. */
-    month: number | "*";
+    /** Week of year, `1` - `52`. */
+    week: number;
     /** Day of week, `0` - `6`, `0` represents Sunday. */
     day: number | "*";
+    /** `1` - `12`. */
+    month: number | "*";
     /** Day of month, `1` - `31`. */
     date: number | "*";
     /** `0` - `23`. */
@@ -41,42 +65,92 @@ export class ScheduleInfo {
     /** `0` - `59`. */
     seconds: number | "*";
     /**
-     * - `-1` expired, the schedule should stop now.
-     * - `0` in position, the schedule should run now;
-     * - `1` waiting, the schedule should wait for the next tick.
+     * When in an `every...` phrase, this property carries the target property 
+     * name and interval value to be increased.
      */
-    get state(): number {
-        let target = Math.floor(this.toTime() / 1000);
-        let current = Math.floor(Date.now() / 1000);
-        let res = target - current;
-        return res ? (res > 0 || this[increment] ? 1 : -1) : 0;
-    };
+    increment: [string, number];
+    /** Whether the schedule should run only once. */
+    readonly once: boolean;
 
     /**
      * If `pattern` is a string, the constructor acts exactly the same as 
      * function `parse()`.
      */
     constructor(pattern: string | Date) {
-        this[increment] = undefined;
         if (typeof pattern === "string") {
-            this.year = undefined;
-            this.month = undefined;
-            this.day = undefined;
-            this.date = undefined;
-            this.hours = undefined;
-            this.minutes = undefined;
-            this.seconds = undefined;
+            for (let prop of Props) {
+                this[prop] = undefined;
+            }
+            this.increment = undefined;
             this.parseDateTime(pattern);
             this.parseStatement(pattern);
+            this.once = this.increment === undefined
+                && /\*[\/\-:]|[\/\-:]\*/.test(pattern) === false;
         } else {
             this.year = pattern && pattern.getFullYear();
-            this.month = pattern && pattern.getMonth() + 1;
+            this.week = pattern && currentWeek(pattern);
             this.day = pattern && pattern.getDay();
+            this.month = pattern && pattern.getMonth() + 1;
             this.date = pattern && pattern.getDate();
             this.hours = pattern && pattern.getHours();
             this.minutes = pattern && pattern.getMinutes();
             this.seconds = pattern && pattern.getSeconds();
+            this.increment = undefined;
+            this.once = true;
         }
+    }
+
+    /**
+     * - `-1` expired, the schedule should stop now.
+     * - `0` in position, the schedule should run now;
+     * - `1` waiting, the schedule should wait for the next tick.
+     */
+    getState(): number {
+        if (this[state] == -1) return -1;
+
+        let stat = -1;
+        let current = ScheduleInfo.getCurrent();
+        let hasWildcard = false;
+
+        for (let prop of Props) {
+            if (this[prop] === undefined) {
+                continue;
+            } else if (this[prop] === "*") {
+                stat = 0;
+                hasWildcard = true;
+            } else if (this[prop] === current[prop]) {
+                stat = 0;
+            } else if (this[prop] > current[prop]) {
+                stat = 1;
+                break;
+            } else if (this[prop] < current[prop]) {
+                if (hasWildcard) {
+                    stat = 1;
+                    break;
+                }
+
+                stat = -1;
+                for (let _prop of Props) {
+                    if (_prop == prop) {
+                        break;
+                    } else if (this[_prop] === undefined) {
+                        continue;
+                    } else if (this[_prop] > current[_prop]) {
+                        stat = 1;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+
+        this[state] = stat;
+        return stat;
+    };
+
+    /** @deprecated use `getState()` instead. */
+    get state() {
+        return this.getState();
     }
 
     /**
@@ -113,9 +187,9 @@ export class ScheduleInfo {
             }
 
             if (isDate || isTime) {
-                let num1 = nums[0] === "*" ? nums[0] : parseInt(nums[0]) || -1,
-                    num2 = nums[1] === "*" ? nums[1] : parseInt(nums[1]) || -1,
-                    num3 = nums[2] === "*" ? nums[2] : parseInt(nums[2]) || -1;
+                let num1 = getNum(nums[0]);
+                let num2 = getNum(nums[1]);
+                let num3 = getNum(nums[2]);
 
                 if (isDate) {
                     if (typeof num3 === "number" && num3 > 31 || num3 === -1) {
@@ -141,10 +215,12 @@ export class ScheduleInfo {
 
                 if (part.substring(part.length - 2) === "th") {
                     let num = parseInt(part) || -1;
-                    if (this.date === undefined)
-                        this.date = num >= 1 && num <= 31 ? num : undefined;
-                    if (this.year === undefined)
-                        this.year = !this.year && num >= 1970 ? num : undefined;
+                    if (this.date === undefined && num >= 1 && num <= 31)
+                        this.date = num;
+                } else if (!isNaN(<any>part)) {
+                    let num = parseInt(part) || -1;
+                    if (this.year === undefined && num >= 1970)
+                        this.year = num;
                 }
             }
         }
@@ -154,7 +230,7 @@ export class ScheduleInfo {
      * @private
      */
     private setDate(year, month, date) {
-        if(typeof year === "number")
+        if (typeof year === "number")
             this.year = year >= 1970 ? year : undefined;
         else
             this.year = year;
@@ -174,17 +250,17 @@ export class ScheduleInfo {
      * @private
      */
     private setTime(hours, minutes, seconds) {
-        if(typeof hours == "number")
+        if (typeof hours == "number")
             this.hours = hours >= 0 && hours <= 23 ? hours : undefined;
         else
             this.hours = hours;
 
-        if(typeof minutes == "number")
+        if (typeof minutes == "number")
             this.minutes = minutes >= 0 && minutes <= 59 ? minutes : undefined;
         else
             this.minutes = minutes;
 
-        if(typeof seconds == "number")
+        if (typeof seconds == "number")
             this.seconds = seconds >= 0 && seconds <= 59 ? seconds : undefined;
         else
             this.seconds = seconds;
@@ -206,82 +282,103 @@ export class ScheduleInfo {
      *  parseStatement('the day after 2 days')
      */
     private parseStatement(pattern: string): void {
-        let re1 = /(every|in|after)\s+(\d+)\s+(\w+)/i;
-        let re2 = /(every)\s+(\w+)/i;
-        let re3 = /today|tomorrow|the\s+day\s+after\s+(.+)/i;
         let units1 = ["days", "months", "years", "weeks"];
         let units2 = ["hour", "minute", "second"];
-        let prep: string;
-        let num: number;
-        let unit: string;
-        let prop: string;
+        let current = ScheduleInfo.getCurrent();
+        let matches = [
+            pattern.match(/(on)\s+(\w+)/),
+            pattern.match(/(every)\s+(\w+)/i),
+            pattern.match(/(in|after)\s+(this|next|\d+)\s+(\w+)/i),
+            pattern.match(/(every|in|after)\s+(\d+)\s+(\w+)/i),
+            pattern.match(/today|tomorrow|the\s+(\w+)\s+after\s+(.+)/i)
+        ];
+        let matched: boolean = false;
 
-        let match = re1.exec(pattern) || re2.exec(pattern) || re3.exec(pattern);
-        if (match) {
-            if (match.length === 4) { // match re1
+        for (let match of matches) {
+            if (!match) continue;
+            matched = true;
+
+            let prep: string;
+            let num: number;
+            let unit: string;
+            let prop: string;
+
+            if (match.length === 4) {
                 prep = match[1].toLowerCase();
-                num = parseInt(match[2]) || -1;
                 unit = match[3].toLowerCase();
+                let target = match[2].toLowerCase();
+                if (target === "this")
+                    num = 0;
+                else if (target === "next")
+                    num = 1;
+                else
+                    num = parseInt(target) || -1;
             } else {
-                if (match[1] === "every") { // match re2
-                    prep = "every";
+                if (match[1] === "every" || match[1] === "on") {
+                    prep = match[1];
                     let i = Weekdays.indexOf(match[2]);
                     if (i >= 0) { // match weekdays
                         this.day = i;
-                        return;
+                        if (match[1] === "every")
+                            this.increment = ["week", 1];
+                        continue;
                     } else {
                         num = 1;
                         unit = match[2].toLowerCase();
                     }
                 } else if (match[0] === "today") {
-                    this.date = new Date().getDate();
-                    return;
+                    num = 0;
                 } else if (match[0] === "tomorrow") {
                     num = 1;
-                } else {
-                    if (match[1] === "tomorrow") {
+                } else if (match[0].split(/\s+/)[0] === "the") {
+                    if (match[1] === "day" && match[2] === "tomorrow") {
                         num = 2;
                     } else {
-                        let parts = match[1].split(/\s+/);
-                        num = parseInt(parts[0]) || -1;
+                        let parts = match[2].split(/\s+/);
+                        if (parts[0] === "this")
+                            num = 0;
+                        else if (parts[0] === "next")
+                            num = 1;
+                        else
+                            num = parseInt(parts[0]) || -1;
                         unit = parts[1].toLowerCase();
+                        num = num >= 0 ? num + 1 : num;
                     }
                 }
 
                 prep = prep || "in";
                 unit = unit || "day";
             }
-        }
 
-        num = num > 0 ? num : undefined;
+            if (num === -1)
+                continue;
 
-        if (num > 1 && units1.includes(unit)) {
-            unit = unit.substring(0, unit.length - 1); // plural to singular
-        } else if (num === 1 && units2.includes(unit)) {
-            unit += "s"; // singular to plural
-        }
-
-        if (unit == "day" || unit == "week") {
-            prop = "date";
-            if (unit == "week")
-                num = num * 7;
-        } else {
-            prop = unit;
-        }
-
-        if (num && Props.includes(prop)) {
-            let current = ScheduleInfo.getCurrent();
-
-            if (prep === "in" || prep === "after") { // in... or after...
-                num = prep == "in" ? num : (num + 1);
-                this[prop] = current[prop] + num;
-            } else { // every...
-                this[prop] = current[prop];
-                this[increment] = [prop, num];
+            if (num >= 1 && units1.includes(unit)) {
+                // plural to singular
+                unit = unit.substring(0, unit.length - 1);
+            } else if (num === 1 && units2.includes(unit)) {
+                unit += "s"; // singular to plural
             }
 
-            this.correct();
+            if (unit == "day") {
+                prop = "date";
+            } else {
+                prop = unit;
+            }
+
+            if (Props.includes(prop)) {
+                if (prep === "in" || prep === "after") { // in... or after...
+                    num = prep == "in" ? num : (num + 1);
+                    this[prop] = current[prop] + num;
+                } else { // every...
+                    this[prop] = current[prop];
+                    this.increment = [prop, num];
+                }
+            }
         }
+
+        if (matched)
+            this.correct();
     }
 
     /**
@@ -333,33 +430,14 @@ export class ScheduleInfo {
         }
     }
 
-    /** Updates information if the pattern contains an `every...` phrase. */
+    /** Updates the schedule state. */
     update(): void {
-        if (this[increment]) {
-            this[this[increment][0]] += this[increment][1];
+        if (this.increment) {
+            this[this.increment[0]] += this.increment[1];
             this.correct();
+        } else if (this.once && this[state] === 0) {
+            this[state] = -1;
         }
-    }
-
-    /**
-     * Gets the UNIX timestamp according to the schedule information, if a 
-     * property is undefined or `*`, the current date-time will be used.
-     */
-    toTime() {
-        let current = (<typeof ScheduleInfo>this.constructor).getCurrent();
-        let info: { [x: string]: number } = {};
-
-        for (let prop of Props) {
-            if (this[prop] === undefined || this[prop] === "*")
-                info[prop] = current[prop];
-            else
-                info[prop] = this[prop];
-        }
-
-        let { year, month, date, hours, minutes, seconds } = info;
-        month -= 1;
-
-        return new Date(year, month, date, hours, minutes, seconds).getTime();
     }
 
     /** Gets a ScheduleInfo instance according to the current time. */

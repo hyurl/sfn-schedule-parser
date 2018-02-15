@@ -14,25 +14,25 @@ npm i sfn-schedule-parser
 ## Example
 
 ```javascript
-const { parse, parseDateTime, parseStatement } = require("sfn-schedule-parser");
+const { parse } = require("sfn-schedule-parser");
 
-console.log(parseDateTime('2018-2-14 20:00')); // a certain time.
-console.log(parseDateTime('2018-*-14')); // 14th day of every month in 2018.
-console.log(parseDateTime('*:30')); // 30 minutes of every hour in today.
-console.log(parseDateTime('Sat 20:00')); // 20:00 on Saturday in this week.
+console.log(parse('2018-2-14 20:00')); // a certain time.
+console.log(parse('2018-*-14')); // 14th day of every month in 2018.
+console.log(parse('*:30')); // 30 minutes of every hour in today.
+console.log(parse('Sat 20:00')); // 20:00 on Saturday in this week.
 // every minutes of 20 hours in the 14th day of every month.
-console.log(parseDateTime('2018/*/14 20:*'));
+console.log(parse('2018/*/14 20:*'));
 // February 14th in 2018.
-console.log(parseDateTime('Feb 14th 2018'));
+console.log(parse('Feb 14th 2018'));
 
-console.log(parseStatement('every 2 hours'));
-console.log(parseStatement('in 2 hours'));
-console.log(parseStatement('after 2 hours'));
-console.log(parseStatement('every day'));
-console.log(parseStatement('every Monday')); // Monday, not Mon or monday.
-console.log(parseStatement('tomorrow'));
-console.log(parseStatement('the day after tomorrow'));
-console.log(parseStatement('the day after 2 days'));
+console.log(parse('every 2 hours'));
+console.log(parse('in 2 hours'));
+console.log(parse('after 2 hours'));
+console.log(parse('every day'));
+console.log(parse('every Monday')); // Monday, not Mon or monday.
+console.log(parse('tomorrow'));
+console.log(parse('the day after tomorrow'));
+console.log(parse('the day after 2 days'));
 
 console.log(parse('20:00 every day'));
 // 0 minutes of every hour on every Monday.
@@ -41,53 +41,29 @@ console.log(parse('*:00 every Monday'));
 
 ## Returning Values
 
-All three functions return an object (type `ScheduleInfo` in TypeScript) that 
-carries these information:
+The `parse()` function returns an `ScheduleInfo` that carries these 
+information:
 
-- `year: number` 2018+
-- `month: number` `1` - `12`.
-- `day: number` Day of week, `0` - `6`, `0` represents Sunday.
-- `date: number` Day of month, `1` - `31`.
-- `hours: number` `0` - `23`.
-- `minutes: number` `0` - `59`.
-- `seconds: number` `0` - `59`.
-- `once: boolean` Whether the schedule should run only once.
-- `increment: [string, number]` Increases the interval time by a specific 
-    property and number when the schedule has been run.
+- `year: number | "*"` 2018+
+- `month: number | "*"` `1` - `12`.
+- `day: number | "*"` Day of week, `0` - `6`, `0` represents Sunday.
+- `date: number | "*"` Day of month, `1` - `31`.
+- `hours: number | "*"` `0` - `23`.
+- `minutes: number | "*"` `0` - `59`.
+- `seconds: number | "*"` `0` - `59`.
 
-If any of these properties isn't set, it's value would be `undefined`, when a 
-value is undefined, the scheduler should not check the property.
+If any of these properties isn't set, it's value would be `undefined`; if the 
+parsing pattern contains any asterisks (`*`), the corresponding property will 
+be set to `*`.
 
-### About `once`
+### The state of a schedule
 
-The functions will set this property automatically by analyzing the input 
-statement, but whether or not to run the schedule only once, it's all up to 
-you. It's highly recommended that when `once` is `true` you should always run 
-the schedule only once though, and stop it right after it has been run.
+The getter property `state` indicates the position of the schedule, possible 
+values are:
 
-### About `increment`
-
-When `increment` is set, the first element would be a property name, the 
-scheduler must check this property, when the schedule has been run, the 
-scheduler should set the corresponding property a new value according to the 
-second element of `increment`, so that the next tick could check the new value.
-
-The `increment` property will be set when the statement contains an `every...`
-phrase, e.g.
-
-- `every 2 hours` => ['hours', 2]
-- `every day` => ['date', 1]
-- `every Monday` => ['day', 1]
-
-**Warning:** when `increment` is set, the `once` shall never be `true`.
-
-## Checking Rules
-
-When any property of `ScheduleInfo` is set, the scheduler must check it and 
-compare the value to the current date-time, and should check as many 
-properties as provided. If the current date-time matches the details that 
-`ScheduleInfo` provides, the schedule runs. As talked above, when `once` is 
-`true` or `increment` is set, the scheduler should act properly.
+- `-1` expired, the schedule should stop now.
+- `0` in position, the schedule should run now;
+- `1` waiting, the schedule should wait for the next tick.
 
 ## How to build a scheduler?
 
@@ -97,26 +73,27 @@ proper period, and run any callbacks when the certain time arrives. If you're
 using the former two, make sure that the interval you set is less than `1000` 
 milliseconds.
 
-This module also exports another two functions that allow you building a 
-scheduler in no time, the following example is a very simple scheduler that 
-shows you how to use them.
-
 ```javascript
-const { parse, toTime, applyIncrement } = require("sfn-schedule-parser");
+const { parse } = require("sfn-schedule-parser");
 
 var info = parse("20:00 every day");
 
-let func = info.once ? setTimeout : setInterval;
-let timer = func(() => {
-    let target = Math.round(toTime(info) / 1000),
-        current = Math.round(Date.now() / 1000);
-
-    if (target === current) {
+let timer = setInterval(() => {
+    let state = info.state; // it's better to call info.state just once.
+    if (state === 0) {
         // ...
-        applyIncrement(info);
+        info.update(); // update the schedule info.
+    } else if (state === -1) {
+        clearInterval(timer);
     }
 }, 500);
 ```
 
-**Warning:** if you're going to use `process.nextTick()`, make sure that your 
-program will hang until the schedule is called.
+**Warning:** if you're going to use `setTimeout()` or `process.nextTick()`, 
+make sure that your program will hang until the schedule is called at least 
+once, unless you stop it manually.
+
+## Customizing API
+
+If you're not going to use the `state` property, you can manually check the 
+properties in the `ScheduleInfo`, and compare them to the current time.

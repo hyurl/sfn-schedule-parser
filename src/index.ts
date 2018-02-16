@@ -192,7 +192,7 @@ export class ScheduleInfo {
         let current = getCurrentTick();
         let state = this.realGetState(current);
 
-        if (state === 0)
+        if (state <= 0)
             this.nextTick = this.getNextTick(current);
 
         return state;
@@ -475,9 +475,9 @@ export class ScheduleInfo {
      */
     private getNextTick(current?: DateTime): DateTime {
         current = current || getCurrentTick();
-        let atBeginning: boolean = undefined;
         let next: DateTime = {};
-        let beggings: DateTime = {
+        let beginning: DateTime = {
+            year: current.year + 1,
             week: 1,
             day: 0,
             month: 1,
@@ -489,33 +489,27 @@ export class ScheduleInfo {
 
         for (let i in Props) {
             let prop = Props[i];
-            if (typeof this[prop] == "string" && this[prop][0] == "*") {
+            if (this[prop] === undefined) {
+                next[prop] = undefined;
+            } else if (typeof this[prop] == "string") {
                 let num = parseInt((<string>this[prop]).split("/")[1] || "1");
-                if (atBeginning === true) {
-                    next[prop] = beggings[prop];
-                } else if (atBeginning === false) {
-                    next[prop] = current[prop] + num;
-                } else {
-                    let j = parseInt(i) + 1;
-                    let atCurrent = false;
-                    for (; j < Props.length; j++) {
-                        let _prop = Props[j];
-                        if (typeof this[_prop] == "string"
-                            || this[_prop] >= current[_prop]) {
-                            atCurrent = true;
-                            break;
-                        }
+                for (let l = Props.length - 1; l >= <any>i; l--) {
+                    let _prop = Props[l];
+                    if (this[_prop] === undefined) {
+                        continue;
+                    } else if (typeof this[_prop] == "number") {
+                        if (this[_prop] >= current[_prop])
+                            next[prop] = current[prop];
+                        else
+                            next[prop] = current[prop] + num;
+                        break;
+                    } else if (_prop == prop) {
+                        next[prop] = current[prop] + num;
+                        break;
                     }
-                    next[prop] = atCurrent ? current[prop] : current[prop] + num;
-                }
-            } else if (typeof this[prop] == "number") {
-                next[prop] = this[prop];
-
-                if (atBeginning === undefined) {
-                    atBeginning = this[prop] > current[prop];
                 }
             } else {
-                next[prop] = undefined;
+                next[prop] = this[prop];
             }
         }
 

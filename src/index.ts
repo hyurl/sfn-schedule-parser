@@ -504,7 +504,16 @@ export class ScheduleInfo {
                             next[prop] = current[prop] + num;
                         break;
                     } else if (_prop == prop) {
-                        next[prop] = current[prop] + num;
+                        for (let __prop of Props) {
+                            if (__prop == prop) {
+                                break;
+                            } else if (next[__prop] > current[__prop]) {
+                                next[prop] = beginning[prop];
+                                break;
+                            }
+                        }
+                        if (next[prop] === undefined)
+                            next[prop] = current[prop] + num;
                         break;
                     }
                 }

@@ -69,9 +69,10 @@ values are:
 - `0` in position, the schedule should run now;
 - `1` waiting, the schedule should wait for the next tick.
 
-The method `getBestInterval()` returns the best interval value calculated 
-according to the schedule information, so that the scheduler doesn't need to 
-check the state every second when not necessary.
+The methods `getBestInterval()` and `getBestTimeout()` returns the best 
+interval/timeout value calculated according to the schedule information, so 
+that the scheduler doesn't need to check the state every second when not 
+necessary.
 
 ## How to build a scheduler?
 

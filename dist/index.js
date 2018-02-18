@@ -53,8 +53,9 @@ function getNum(str) {
         return isNaN(num) ? -1 : num;
     }
 }
-function getCurrentTick() {
-    let date = new Date(), day = date.getDay();
+function getCurrentTick(date) {
+    date = date || new Date();
+    let day = date.getDay();
     return {
         year: date.getFullYear(),
         week: currentWeek(date),
@@ -319,10 +320,7 @@ class ScheduleInfo {
         let wildcard2;
         let wildcard3;
         for (let prop of ReversedProps) {
-            if (this[prop] === undefined) {
-                continue;
-            }
-            else if (typeof this[prop] == "number") {
+            if (this[prop] === undefined || typeof this[prop] == "number") {
                 tick[prop] = this[prop];
             }
             else if (isWildcard(this[prop])) {
@@ -421,7 +419,7 @@ class ScheduleInfo {
             tick.week %= 52;
         }
     }
-    getBestInterval(deviation = 0) {
+    getBestInterval() {
         let intervals = {
             seconds: 1000,
             minutes: 1000 * 60,
@@ -436,7 +434,19 @@ class ScheduleInfo {
                 break;
             }
         }
-        return (interval || intervals.week) - deviation;
+        return interval || intervals.week;
+    }
+    getBestTimeout(deviation = 0) {
+        let now = new Date();
+        let tick = getCurrentTick(now);
+        for (let prop of Props) {
+            if (this.nextTick[prop] !== undefined) {
+                tick[prop] = this.nextTick[prop];
+            }
+        }
+        let { year, month, date, hours, minutes, seconds } = tick;
+        let target = new Date(year, month - 1, date, hours, minutes, seconds);
+        return target.getTime() - now.getTime();
     }
 }
 exports.ScheduleInfo = ScheduleInfo;

@@ -65,10 +65,10 @@ function getNum(str: string): PropType {
     }
 }
 
-/** Gets the tick information according to the current time. */
-export function getCurrentTick(): DateTime {
-    let date = new Date(),
-        day = date.getDay();
+/** Gets the tick information according to the current time or give date. */
+export function getCurrentTick(date?: Date): DateTime {
+    date = date || new Date();
+    let day = date.getDay();
     return {
         year: date.getFullYear(),
         week: currentWeek(date),
@@ -423,9 +423,7 @@ export class ScheduleInfo {
         let wildcard3: [string, number];
 
         for (let prop of ReversedProps) {
-            if (this[prop] === undefined) {
-                continue;
-            } else if (typeof this[prop] == "number") {
+            if (this[prop] === undefined || typeof this[prop] == "number") {
                 tick[prop] = this[prop];
             } else if (isWildcard(this[prop])) {
                 let num = parseInt((<string>this[prop]).split("/")[1]) || 1;
@@ -533,7 +531,7 @@ export class ScheduleInfo {
     }
 
     /** Gets the best interval value according to the schedule information. */
-    getBestInterval(deviation = 0): number {
+    getBestInterval(): number {
         let intervals: { [prop: string]: number } = {
             seconds: 1000,
             minutes: 1000 * 60,
@@ -550,7 +548,23 @@ export class ScheduleInfo {
             }
         }
 
-        return (interval || intervals.week) - deviation;
+        return interval || intervals.week;
+    }
+
+    /** Gets the best timeout value according to the schedule information. */
+    getBestTimeout(deviation = 0): number {
+        let now = new Date();
+        let tick = getCurrentTick(now);
+
+        for (let prop of Props) {
+            if (this.nextTick[prop] !== undefined) {
+                tick[prop] = this.nextTick[prop];
+            }
+        }
+
+        let { year, month, date, hours, minutes, seconds } = tick;
+        let target = new Date(year, month - 1, date, hours, minutes, seconds);
+        return target.getTime() - now.getTime();
     }
 }
 

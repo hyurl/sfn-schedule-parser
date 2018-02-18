@@ -1,6 +1,6 @@
 const { parse } = require("./");
 
-console.log(parse('2018-2-14 20:00')); // a certain time.
+// console.log(parse('2018-2-14 20:00')); // a certain time.
 console.log(parse('2018-*-14')); // 14th day of every month in 2018.
 console.log(parse('*:30')); // 30 minutes of every hour in today.
 console.log(parse('Sat 20:00')); // 20:00 on Saturday in this week.

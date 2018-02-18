@@ -1,60 +1,22 @@
-import currentWeekNumber = require("current-week-number");
 import { trimRight } from "string-trimmer";
-
-const currentWeek: (arg?: string | Date) => number = currentWeekNumber;
-const Months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sept",
-    "Oct",
-    "Nov",
-    "Dec"
-];
-const Weekdays = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday"
-];
-const Weekdays2 = ["Mon", "Tues", "Wed", "Thurs", "Fri", "Sat", "Sun"];
-const Props = [
-    "year",
-    "week",
-    "day",
-    "month",
-    "date",
-    "hours",
-    "minutes",
-    "seconds"
-];
-const ReversedProps: string[] = Object.assign([], Props).reverse();
-
-type PropType = string | number;
-type DateTime = {
-    year?: number;
-    week?: number;
-    day?: number;
-    month?: number;
-    date?: number;
-    hours?: number;
-    minutes?: number;
-    seconds?: number;
-};
+import { StrOrNum, DateTimeLike, DateTime } from "./types";
+import {
+    currentWeek,
+    Months,
+    BigMonths,
+    Weekdays,
+    Weekdays2,
+    Beginnings,
+    Endings,
+    Props,
+    ReversedProps
+} from "./consts";
 
 function isWildcard(data: any): boolean {
     return typeof data == "string" && data[0] == "*";
 }
 
-function getNum(str: string): PropType {
+function getNum(str: string): StrOrNum {
     if (str === undefined) {
         return -1;
     } else if (isWildcard(str)) {
@@ -81,31 +43,23 @@ export function getCurrentTick(date?: Date): DateTime {
     }
 }
 
-export class ScheduleInfo {
-    /** 2018+. */
-    year: PropType;
-    /** Week of year, `1` - `52`. */
-    week: PropType;
-    /** Day of week, `1` - `7`, `7` represents Sunday. */
-    day: PropType;
-    /** `1` - `12`. */
-    month: PropType;
-    /** Day of month, `1` - `31`. */
-    date: PropType;
-    /** `0` - `23`. */
-    hours: PropType;
-    /** `0` - `59`. */
-    minutes: PropType;
-    /** `0` - `59`. */
-    seconds: PropType;
+export class ScheduleInfo implements DateTimeLike {
+    year: StrOrNum;
+    week: StrOrNum;
+    day: StrOrNum;
+    month: StrOrNum;
+    date: StrOrNum;
+    hours: StrOrNum;
+    minutes: StrOrNum;
+    seconds: StrOrNum;
+
     /** Whether the schedule should run only once. */
     readonly once: boolean;
     /** @private */
     private nextTick: DateTime;
 
     /**
-     * If `pattern` is a string, the constructor acts exactly the same as 
-     * function `parse()`.
+     * The constructor acts exactly the same as function `parse()`.
      */
     constructor(pattern: string) {
         for (let prop of Props) {
@@ -206,39 +160,90 @@ export class ScheduleInfo {
     }
 
     /** @private */
-    private setDate(year: PropType, month: PropType, date: PropType) {
-        if (typeof year == "number")
-            this.year = year >= 1970 ? year : undefined;
-        else if (isWildcard(year))
-            this.year = year;
+    private setProp(prop: string, val: StrOrNum) {
+        if (typeof val == "number") {
+            let min = Beginnings[prop],
+                max = Endings[prop];
 
-        if (typeof month == "number")
-            this.month = month >= 1 && month <= 12 ? month : undefined;
-        else if (isWildcard(month))
-            this.month = month;
+            this[prop] = (val >= min && val <= max) ? val : undefined;
+        } else if (isWildcard(val)) {
+            this[prop] = val;
+        }
+    }
 
-        if (typeof date == "number")
-            this.date = date >= 1 && date <= 31 ? date : undefined;
-        else if (isWildcard(date))
-            this.date = date;
+
+    /** @private */
+    private setDate(year: StrOrNum, month: StrOrNum, date: StrOrNum) {
+        this.setProp("year", year);
+        this.setProp("month", month);
+        this.setProp("date", date);
     }
 
     /** @private */
-    private setTime(hours: PropType, minutes: PropType, seconds: PropType) {
-        if (typeof hours == "number")
-            this.hours = hours >= 0 && hours <= 23 ? hours : undefined;
-        else if (isWildcard(hours))
-            this.hours = hours;
+    private setTime(hours: StrOrNum, minutes: StrOrNum, seconds: StrOrNum) {
+        this.setProp("hours", hours);
+        this.setProp("minutes", minutes);
+        this.setProp("seconds", seconds);
+    }
 
-        if (typeof minutes == "number")
-            this.minutes = minutes >= 0 && minutes <= 59 ? minutes : undefined;
-        else if (isWildcard(minutes))
-            this.minutes = minutes;
+    /** @private */
+    private correctDate(tick: DateTimeLike, num: number, current: DateTime, force = false) {
+        let date = <number>tick.date;
+        if (isWildcard(this.month) && typeof tick.month == "number") {
+            tick.month = tick.month + Math.floor(date / num);
+        } else if (force) {
+            tick.month = current.month + Math.floor(date / num);
+        }
+        tick.date = date % num;
+    }
 
-        if (typeof seconds == "number")
-            this.seconds = seconds >= 0 && seconds <= 59 ? seconds : undefined;
-        else if (isWildcard(seconds))
-            this.seconds = seconds;
+    /** @private */
+    private correctTick(tick: DateTimeLike, prop: string, current?: DateTime, force = false) {
+        current = current || getCurrentTick();
+        let ending: number = Endings[prop];
+
+        if (prop == "date") {
+            if (typeof tick.date != "number") return;
+
+            let year: number;
+            let month: number;
+
+            if (tick.month === undefined || isWildcard(tick.month))
+                month = current.month;
+            else
+                month = <number>tick.month;
+
+            if (tick.year === undefined || isWildcard(tick.year))
+                year = current.year;
+            else
+                year = <number>tick.year;
+
+            if (month == 2) {
+                if (year % 4 && tick.date > 28) {
+                    this.correctDate(tick, 28, current, force);
+                } else if (tick.date > 29) {
+                    this.correctDate(tick, 29, current, force);
+                }
+            } else if (BigMonths.includes(month) && <number>tick.date > 31) {
+                this.correctDate(tick, 31, current, force);
+            } else if (<number>tick.date > 30) {
+                this.correctDate(tick, 30, current, force);
+            }
+        } else if (typeof tick[prop] == "number" && tick[prop] > ending) {
+            let i = ReversedProps.indexOf(prop),
+                step = prop == "month" ? 3 : 1,
+                prev = ReversedProps[i + step];
+
+            ending = (prop == "day" || prop == "month") ? ending : ending + 1;
+
+            if (prev && isWildcard(this[prev]) && tick[prop] <= current[prop]) {
+                tick[prev] += Math.floor(tick[prop] / ending);
+            } else if (prev && force) {
+                tick[prev] = current[prev] + Math.floor(tick[prop] / ending);
+            }
+
+            tick[prop] %= ending;
+        }
     }
 
     /**
@@ -321,10 +326,12 @@ export class ScheduleInfo {
             let i = Weekdays.indexOf(unit);
             if (i >= 0) {
                 this.day = i + 1;
-                if (prep == "every")
+                if (prep == "every") {
                     this.week = "*";
-                else
+                } else {
                     this.week = current.week + num;
+                    this.correctTick(this, "week", current, true);
+                }
                 continue;
             }
 
@@ -349,6 +356,7 @@ export class ScheduleInfo {
                 if (prep === "in" || prep === "after") { // in... or after...
                     num = prep == "in" ? num : (num + 1);
                     this[prop] = current[prop] + num;
+                    this.correctTick(this, prop, current, true);
                 } else if (prep == "every") { // every...
                     this[prop] = num == 1 ? "*" : `*/${num}`;
                     for (let j = i - 1; j >= 0; j--) {
@@ -407,32 +415,26 @@ export class ScheduleInfo {
      */
     private getNextTick(current?: DateTime): DateTime {
         current = current || getCurrentTick();
+        Beginnings.year = current.year + 1;
         let tick: DateTime = {};
-        let beginnings: DateTime = {
-            year: current.year + 1,
-            week: 1,
-            day: 1,
-            month: 1,
-            date: 1,
-            hours: 0,
-            minutes: 0,
-            seconds: 0
-        };
         let wildcard1: [string, number];
         let wildcard2: [string, number];
         let wildcard3: [string, number];
 
         for (let prop of ReversedProps) {
-            if (this[prop] === undefined || typeof this[prop] == "number") {
+            if (this[prop] === undefined) {
+                continue;
+            } else if (typeof this[prop] == "number") {
                 tick[prop] = this[prop];
             } else if (isWildcard(this[prop])) {
                 let num = parseInt((<string>this[prop]).split("/")[1]) || 1;
                 if (wildcard1 === undefined) {
                     wildcard1 = [prop, num];
-                    tick[prop] = beginnings[prop];
+                    tick[prop] = Beginnings[prop];
                 } else if (wildcard2 === undefined) {
                     wildcard2 = [prop, num];
                     tick[prop] = current[prop] + num;
+                    this.correctTick(tick, prop, current);
                 } else {
                     tick[prop] = current[prop];
                     if (wildcard3 === undefined)
@@ -443,91 +445,31 @@ export class ScheduleInfo {
 
         if (wildcard1) {
             if (wildcard2 === undefined) {
-                tick[wildcard1[0]] = current[wildcard1[0]] + wildcard1[1];
+                let [prop, num] = wildcard1;
+                tick[prop] = current[prop] + num;
+                this.correctTick(tick, prop, current);
             } else {
+                let [prop1, num1] = wildcard1;
+                let [prop2, num2] = wildcard2;
                 let _tick = Object.assign({}, tick);
-                _tick[wildcard1[0]] = current[wildcard1[0]] + wildcard1[1];
-                _tick[wildcard2[0]] = current[wildcard2[0]];
+
+                _tick[prop1] = current[prop1] + num1;
+                _tick[prop2] = current[prop2];
+                this.correctTick(tick, prop1, current);
+
                 if (this.realGetState(current, _tick) !== -1) {
                     tick = _tick;
                 } else if (this.realGetState(current, tick) === -1) {
-                    tick[wildcard2[0]] = beginnings[wildcard2[0]];
-                    if (wildcard3)
-                        tick[wildcard3[0]] = current[wildcard3[0]] + wildcard3[1];
+                    tick[prop2] = Beginnings[prop2];
+                    if (wildcard3) {
+                        let [prop3] = wildcard3;
+                        tick[prop3] = Beginnings[prop3];
+                    }
                 }
             }
         }
 
-        this.correctTick(tick);
         return tick;
-    }
-
-    /** 
-     * Corrects out-bounded properties of a tick time.
-     * @private
-     */
-    private correctTick(tick: DateTime): void {
-        let bigMonths = [1, 3, 5, 7, 8, 10, 12];
-
-        if (tick.seconds > 59) {
-            if (isWildcard(this.minutes))
-                tick.minutes += Math.floor(tick.seconds / 60);
-            tick.seconds %= 60;
-        }
-
-        if (tick.minutes > 59) {
-            if (isWildcard(this.hours))
-                tick.hours += Math.floor(tick.minutes / 60);
-            tick.minutes %= 60;
-        }
-
-        if (tick.hours > 23) {
-            if (isWildcard(this.date))
-                tick.date += Math.floor(tick.hours / 24);
-            tick.hours %= 24;
-        }
-
-        if (tick.month == 2) {
-            if ((!tick.year || tick.year % 4) && tick.date > 28) {
-                if (isWildcard(this.month))
-                    tick.month += Math.floor(tick.date / 28);
-                tick.date %= 28;
-            } else if (tick.date > 29) {
-                if (isWildcard(this.month))
-                    tick.month += Math.floor(tick.date / 29);
-                tick.date %= 29;
-            }
-        } else if (bigMonths.includes(tick.month) && tick.date > 31) {
-            if (isWildcard(this.month))
-                tick.month += Math.floor(tick.date / 31);
-            tick.date %= 31;
-        } else if (tick.date > 30) {
-            if (isWildcard(this.month))
-                tick.month += Math.floor(tick.date / 30);
-            tick.date %= 30;
-        }
-
-        let yearIncreased = false;
-
-        if (tick.month > 12) {
-            if (isWildcard(this.year)) {
-                tick.year += Math.floor(tick.month / 12);
-                yearIncreased = true;
-            }
-            tick.month %= 12;
-        }
-
-        if (tick.day > 7) {
-            if (isWildcard(this.week))
-                tick.week += Math.floor(tick.day / 7);
-            tick.month %= 7;
-        }
-
-        if (tick.week > 52) {
-            if (!yearIncreased && isWildcard(this.year))
-                tick.year + Math.floor(tick.week / 52);
-            tick.week %= 52;
-        }
     }
 
     /** Gets the best interval value according to the schedule information. */
@@ -555,16 +497,35 @@ export class ScheduleInfo {
     getBestTimeout(deviation = 0): number {
         let now = new Date();
         let tick = getCurrentTick(now);
+        /** Last available property. */
+        let lastProp: { name: string, value?: number };
 
-        for (let prop of Props) {
+        for (let i in ReversedProps) {
+            let prop = ReversedProps[i];
+
             if (this.nextTick[prop] !== undefined) {
                 tick[prop] = this.nextTick[prop];
+                if (!lastProp) {
+                    lastProp = { name: prop };
+                    if (isWildcard(this[prop])) {
+                        let val = (<string>this[prop]).split("/")[0] || "1";
+                        lastProp.value = parseInt(val);
+                    }
+                }
+            } else if (this.nextTick[prop] === undefined && !lastProp) {
+                tick[prop] = Beginnings[prop];
             }
         }
 
+        let i = Props.lastIndexOf(lastProp.name);
+        let prop = Props[i + 1];
+        if (prop !== undefined)
+            tick[prop] = Beginnings[prop];
+
         let { year, month, date, hours, minutes, seconds } = tick;
         let target = new Date(year, month - 1, date, hours, minutes, seconds);
-        return target.getTime() - now.getTime();
+        let step = lastProp.value || 1;
+        return (target.getTime() - now.getTime()) * step;
     }
 }
 

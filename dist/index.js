@@ -1,43 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const currentWeekNumber = require("current-week-number");
 const string_trimmer_1 = require("string-trimmer");
-const currentWeek = currentWeekNumber;
-const Months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sept",
-    "Oct",
-    "Nov",
-    "Dec"
-];
-const Weekdays = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday"
-];
-const Weekdays2 = ["Mon", "Tues", "Wed", "Thurs", "Fri", "Sat", "Sun"];
-const Props = [
-    "year",
-    "week",
-    "day",
-    "month",
-    "date",
-    "hours",
-    "minutes",
-    "seconds"
-];
-const ReversedProps = Object.assign([], Props).reverse();
+const consts_1 = require("./consts");
 function isWildcard(data) {
     return typeof data == "string" && data[0] == "*";
 }
@@ -58,7 +22,7 @@ function getCurrentTick(date) {
     let day = date.getDay();
     return {
         year: date.getFullYear(),
-        week: currentWeek(date),
+        week: consts_1.currentWeek(date),
         day: day === 0 ? 7 : day,
         month: date.getMonth() + 1,
         date: date.getDate(),
@@ -70,7 +34,7 @@ function getCurrentTick(date) {
 exports.getCurrentTick = getCurrentTick;
 class ScheduleInfo {
     constructor(pattern) {
-        for (let prop of Props) {
+        for (let prop of consts_1.Props) {
             this[prop] = undefined;
         }
         let current = getCurrentTick();
@@ -78,7 +42,7 @@ class ScheduleInfo {
         this.parseStatement(pattern, current);
         this.once = true;
         this.nextTick = this.getNextTick(current);
-        for (let prop of Props) {
+        for (let prop of consts_1.Props) {
             if (isWildcard(this[prop])) {
                 this.once = false;
                 break;
@@ -117,13 +81,13 @@ class ScheduleInfo {
                 }
             }
             else {
-                let i = Weekdays2.indexOf(part);
+                let i = consts_1.Weekdays2.indexOf(part);
                 if (i >= 0) {
                     this.day = i + 1;
                     continue;
                 }
                 let _part = string_trimmer_1.trimRight(part, ".");
-                i = Months.indexOf(_part);
+                i = consts_1.Months.indexOf(_part);
                 if (i >= 0) {
                     this.month = i + 1;
                     continue;
@@ -141,33 +105,77 @@ class ScheduleInfo {
             }
         }
     }
+    setProp(prop, val) {
+        if (typeof val == "number") {
+            let min = consts_1.Beginnings[prop], max = consts_1.Endings[prop];
+            this[prop] = (val >= min && val <= max) ? val : undefined;
+        }
+        else if (isWildcard(val)) {
+            this[prop] = val;
+        }
+    }
     setDate(year, month, date) {
-        if (typeof year == "number")
-            this.year = year >= 1970 ? year : undefined;
-        else if (isWildcard(year))
-            this.year = year;
-        if (typeof month == "number")
-            this.month = month >= 1 && month <= 12 ? month : undefined;
-        else if (isWildcard(month))
-            this.month = month;
-        if (typeof date == "number")
-            this.date = date >= 1 && date <= 31 ? date : undefined;
-        else if (isWildcard(date))
-            this.date = date;
+        this.setProp("year", year);
+        this.setProp("month", month);
+        this.setProp("date", date);
     }
     setTime(hours, minutes, seconds) {
-        if (typeof hours == "number")
-            this.hours = hours >= 0 && hours <= 23 ? hours : undefined;
-        else if (isWildcard(hours))
-            this.hours = hours;
-        if (typeof minutes == "number")
-            this.minutes = minutes >= 0 && minutes <= 59 ? minutes : undefined;
-        else if (isWildcard(minutes))
-            this.minutes = minutes;
-        if (typeof seconds == "number")
-            this.seconds = seconds >= 0 && seconds <= 59 ? seconds : undefined;
-        else if (isWildcard(seconds))
-            this.seconds = seconds;
+        this.setProp("hours", hours);
+        this.setProp("minutes", minutes);
+        this.setProp("seconds", seconds);
+    }
+    correctDate(tick, num, current, force = false) {
+        let date = tick.date;
+        if (isWildcard(this.month) && typeof tick.month == "number") {
+            tick.month = tick.month + Math.floor(date / num);
+        }
+        else if (force) {
+            tick.month = current.month + Math.floor(date / num);
+        }
+        tick.date = date % num;
+    }
+    correctTick(tick, prop, current, force = false) {
+        current = current || getCurrentTick();
+        let ending = consts_1.Endings[prop];
+        if (prop == "date") {
+            if (typeof tick.date != "number")
+                return;
+            let year;
+            let month;
+            if (tick.month === undefined || isWildcard(tick.month))
+                month = current.month;
+            else
+                month = tick.month;
+            if (tick.year === undefined || isWildcard(tick.year))
+                year = current.year;
+            else
+                year = tick.year;
+            if (month == 2) {
+                if (year % 4 && tick.date > 28) {
+                    this.correctDate(tick, 28, current, force);
+                }
+                else if (tick.date > 29) {
+                    this.correctDate(tick, 29, current, force);
+                }
+            }
+            else if (consts_1.BigMonths.includes(month) && tick.date > 31) {
+                this.correctDate(tick, 31, current, force);
+            }
+            else if (tick.date > 30) {
+                this.correctDate(tick, 30, current, force);
+            }
+        }
+        else if (typeof tick[prop] == "number" && tick[prop] > ending) {
+            let i = consts_1.ReversedProps.indexOf(prop), step = prop == "month" ? 3 : 1, prev = consts_1.ReversedProps[i + step];
+            ending = (prop == "day" || prop == "month") ? ending : ending + 1;
+            if (prev && isWildcard(this[prev]) && tick[prop] <= current[prop]) {
+                tick[prev] += Math.floor(tick[prop] / ending);
+            }
+            else if (prev && force) {
+                tick[prev] = current[prev] + Math.floor(tick[prop] / ending);
+            }
+            tick[prop] %= ending;
+        }
     }
     parseStatement(pattern, current) {
         current = current || getCurrentTick();
@@ -232,13 +240,16 @@ class ScheduleInfo {
             }
             prep = prep || "in";
             unit = unit || "day";
-            let i = Weekdays.indexOf(unit);
+            let i = consts_1.Weekdays.indexOf(unit);
             if (i >= 0) {
                 this.day = i + 1;
-                if (prep == "every")
+                if (prep == "every") {
                     this.week = "*";
-                else
+                }
+                else {
                     this.week = current.week + num;
+                    this.correctTick(this, "week", current, true);
+                }
                 continue;
             }
             if (num === -1)
@@ -255,19 +266,20 @@ class ScheduleInfo {
             else {
                 prop = unit;
             }
-            i = Props.indexOf(prop);
+            i = consts_1.Props.indexOf(prop);
             if (i >= 0) {
                 if (prep === "in" || prep === "after") {
                     num = prep == "in" ? num : (num + 1);
                     this[prop] = current[prop] + num;
+                    this.correctTick(this, prop, current, true);
                 }
                 else if (prep == "every") {
                     this[prop] = num == 1 ? "*" : `*/${num}`;
                     for (let j = i - 1; j >= 0; j--) {
-                        if (this[Props[j]] !== undefined)
+                        if (this[consts_1.Props[j]] !== undefined)
                             break;
                         else
-                            this[Props[j]] = "*";
+                            this[consts_1.Props[j]] = "*";
                     }
                 }
             }
@@ -284,8 +296,8 @@ class ScheduleInfo {
         current = current || getCurrentTick();
         tick = tick || this.nextTick;
         let state = -1;
-        for (let i in Props) {
-            let prop = Props[i];
+        for (let i in consts_1.Props) {
+            let prop = consts_1.Props[i];
             if (tick[prop] === undefined) {
                 continue;
             }
@@ -305,33 +317,28 @@ class ScheduleInfo {
     }
     getNextTick(current) {
         current = current || getCurrentTick();
+        consts_1.Beginnings.year = current.year + 1;
         let tick = {};
-        let beginnings = {
-            year: current.year + 1,
-            week: 1,
-            day: 1,
-            month: 1,
-            date: 1,
-            hours: 0,
-            minutes: 0,
-            seconds: 0
-        };
         let wildcard1;
         let wildcard2;
         let wildcard3;
-        for (let prop of ReversedProps) {
-            if (this[prop] === undefined || typeof this[prop] == "number") {
+        for (let prop of consts_1.ReversedProps) {
+            if (this[prop] === undefined) {
+                continue;
+            }
+            else if (typeof this[prop] == "number") {
                 tick[prop] = this[prop];
             }
             else if (isWildcard(this[prop])) {
                 let num = parseInt(this[prop].split("/")[1]) || 1;
                 if (wildcard1 === undefined) {
                     wildcard1 = [prop, num];
-                    tick[prop] = beginnings[prop];
+                    tick[prop] = consts_1.Beginnings[prop];
                 }
                 else if (wildcard2 === undefined) {
                     wildcard2 = [prop, num];
                     tick[prop] = current[prop] + num;
+                    this.correctTick(tick, prop, current);
                 }
                 else {
                     tick[prop] = current[prop];
@@ -342,82 +349,30 @@ class ScheduleInfo {
         }
         if (wildcard1) {
             if (wildcard2 === undefined) {
-                tick[wildcard1[0]] = current[wildcard1[0]] + wildcard1[1];
+                let [prop, num] = wildcard1;
+                tick[prop] = current[prop] + num;
+                this.correctTick(tick, prop, current);
             }
             else {
+                let [prop1, num1] = wildcard1;
+                let [prop2, num2] = wildcard2;
                 let _tick = Object.assign({}, tick);
-                _tick[wildcard1[0]] = current[wildcard1[0]] + wildcard1[1];
-                _tick[wildcard2[0]] = current[wildcard2[0]];
+                _tick[prop1] = current[prop1] + num1;
+                _tick[prop2] = current[prop2];
+                this.correctTick(tick, prop1, current);
                 if (this.realGetState(current, _tick) !== -1) {
                     tick = _tick;
                 }
                 else if (this.realGetState(current, tick) === -1) {
-                    tick[wildcard2[0]] = beginnings[wildcard2[0]];
-                    if (wildcard3)
-                        tick[wildcard3[0]] = current[wildcard3[0]] + wildcard3[1];
+                    tick[prop2] = consts_1.Beginnings[prop2];
+                    if (wildcard3) {
+                        let [prop3] = wildcard3;
+                        tick[prop3] = consts_1.Beginnings[prop3];
+                    }
                 }
             }
         }
-        this.correctTick(tick);
         return tick;
-    }
-    correctTick(tick) {
-        let bigMonths = [1, 3, 5, 7, 8, 10, 12];
-        if (tick.seconds > 59) {
-            if (isWildcard(this.minutes))
-                tick.minutes += Math.floor(tick.seconds / 60);
-            tick.seconds %= 60;
-        }
-        if (tick.minutes > 59) {
-            if (isWildcard(this.hours))
-                tick.hours += Math.floor(tick.minutes / 60);
-            tick.minutes %= 60;
-        }
-        if (tick.hours > 23) {
-            if (isWildcard(this.date))
-                tick.date += Math.floor(tick.hours / 24);
-            tick.hours %= 24;
-        }
-        if (tick.month == 2) {
-            if ((!tick.year || tick.year % 4) && tick.date > 28) {
-                if (isWildcard(this.month))
-                    tick.month += Math.floor(tick.date / 28);
-                tick.date %= 28;
-            }
-            else if (tick.date > 29) {
-                if (isWildcard(this.month))
-                    tick.month += Math.floor(tick.date / 29);
-                tick.date %= 29;
-            }
-        }
-        else if (bigMonths.includes(tick.month) && tick.date > 31) {
-            if (isWildcard(this.month))
-                tick.month += Math.floor(tick.date / 31);
-            tick.date %= 31;
-        }
-        else if (tick.date > 30) {
-            if (isWildcard(this.month))
-                tick.month += Math.floor(tick.date / 30);
-            tick.date %= 30;
-        }
-        let yearIncreased = false;
-        if (tick.month > 12) {
-            if (isWildcard(this.year)) {
-                tick.year += Math.floor(tick.month / 12);
-                yearIncreased = true;
-            }
-            tick.month %= 12;
-        }
-        if (tick.day > 7) {
-            if (isWildcard(this.week))
-                tick.week += Math.floor(tick.day / 7);
-            tick.month %= 7;
-        }
-        if (tick.week > 52) {
-            if (!yearIncreased && isWildcard(this.year))
-                tick.year + Math.floor(tick.week / 52);
-            tick.week %= 52;
-        }
     }
     getBestInterval() {
         let intervals = {
@@ -439,14 +394,31 @@ class ScheduleInfo {
     getBestTimeout(deviation = 0) {
         let now = new Date();
         let tick = getCurrentTick(now);
-        for (let prop of Props) {
+        let lastProp;
+        for (let i in consts_1.ReversedProps) {
+            let prop = consts_1.ReversedProps[i];
             if (this.nextTick[prop] !== undefined) {
                 tick[prop] = this.nextTick[prop];
+                if (!lastProp) {
+                    lastProp = { name: prop };
+                    if (isWildcard(this[prop])) {
+                        let val = this[prop].split("/")[0] || "1";
+                        lastProp.value = parseInt(val);
+                    }
+                }
+            }
+            else if (this.nextTick[prop] === undefined && !lastProp) {
+                tick[prop] = consts_1.Beginnings[prop];
             }
         }
+        let i = consts_1.Props.lastIndexOf(lastProp.name);
+        let prop = consts_1.Props[i + 1];
+        if (prop !== undefined)
+            tick[prop] = consts_1.Beginnings[prop];
         let { year, month, date, hours, minutes, seconds } = tick;
         let target = new Date(year, month - 1, date, hours, minutes, seconds);
-        return target.getTime() - now.getTime();
+        let step = lastProp.value || 1;
+        return (target.getTime() - now.getTime()) * step;
     }
 }
 exports.ScheduleInfo = ScheduleInfo;
@@ -454,3 +426,4 @@ function parse(pattern) {
     return new ScheduleInfo(pattern);
 }
 exports.parse = parse;
+//# sourceMappingURL=index.js.map

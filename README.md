@@ -23,7 +23,7 @@ console.log(parse('Sat 20:00')); // 20:00 on Saturday in this week.
 // every minutes of 20 hours in the 14th day of every month.
 console.log(parse('2018-*-14 20:*'));
 // February 14th in 2018.
-console.log(parse('Feb 14th 2018'));
+console.log(parse('Dec 25th 2018'));
 
 console.log(parse('every 2 hours'));
 console.log(parse('in 2 hours'));
@@ -37,6 +37,11 @@ console.log(parse('the day after 2 days'));
 console.log(parse('20:00 every day'));
 // 0 minutes of every hour on every Monday.
 console.log(parse('*:00 every Monday'));
+
+// the date-time can be specified with an `*/<num>` value, to set an every...
+// phrase.
+console.log(parse('*/2:00')); // every 2 hours at 0 minutes in today.
+console.log(parse('2018-*/2-*/5')) // every 2 months and every 5 days.
 ```
 
 ## Returning Values
@@ -56,9 +61,13 @@ information:
 
 If any of these properties isn't set, it's value would be `undefined`.
 
-**Warning:** if the schedule pattern is already expired, and `RangeError` will
+**Warning:** if the schedule pattern is already expired, an `RangeError` will
 be thrown, the scheduler may or may not catch this error, but the scheduler 
 must not start in the situation.
+
+**Tip:** there should be only one `every...` phrase in the pattern, however, 
+there could be any number of `*/<num>` specified. The future version may fix 
+this problem, but for now, don't use more than one `every...` phrase.
 
 ### The state of a schedule
 

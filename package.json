@@ -1,6 +1,6 @@
 {
   "name": "sfn-schedule-parser",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "A simple friendly Node.js tool for parsing schedule string patterns.",
   "main": "dist/index.js",
   "types": "src/index.ts",

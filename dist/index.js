@@ -54,11 +54,11 @@ function getNum(str) {
     }
 }
 function getCurrentTick() {
-    let date = new Date();
+    let date = new Date(), day = date.getDay();
     return {
         year: date.getFullYear(),
         week: currentWeek(date),
-        day: date.getDay(),
+        day: day === 0 ? 7 : day,
         month: date.getMonth() + 1,
         date: date.getDate(),
         hours: date.getHours(),
@@ -308,7 +308,7 @@ class ScheduleInfo {
         let beginnings = {
             year: current.year + 1,
             week: 1,
-            day: 0,
+            day: 1,
             month: 1,
             date: 1,
             hours: 0,

@@ -1,5 +1,5 @@
 import { trimRight } from "string-trimmer";
-import { StrOrNum, DateTimeLike, DateTime } from "./types";
+import { DateTimeLike, DateTime } from "./types";
 import {
     currentWeek,
     Months,
@@ -9,14 +9,16 @@ import {
     Beginnings,
     Endings,
     Props,
-    ReversedProps
+    ReversedProps,
+    TimeoutLimit
 } from "./consts";
 
+/** Whether the input data is string '*'. */
 function isWildcard(data: any): boolean {
     return typeof data == "string" && data[0] == "*";
 }
 
-function getNum(str: string): StrOrNum {
+function getNum(str: string): string | number {
     if (str === undefined) {
         return -1;
     } else if (isWildcard(str)) {
@@ -27,7 +29,7 @@ function getNum(str: string): StrOrNum {
     }
 }
 
-/** Gets the tick information according to the current time or give date. */
+/** Gets the tick information according to the current time or given date. */
 export function getCurrentTick(date?: Date): DateTime {
     date = date || new Date();
     let day = date.getDay();
@@ -44,14 +46,14 @@ export function getCurrentTick(date?: Date): DateTime {
 }
 
 export class ScheduleInfo implements DateTimeLike {
-    year: StrOrNum;
-    week: StrOrNum;
-    day: StrOrNum;
-    month: StrOrNum;
-    date: StrOrNum;
-    hours: StrOrNum;
-    minutes: StrOrNum;
-    seconds: StrOrNum;
+    year: string | number;
+    week: string | number;
+    day: string | number;
+    month: string | number;
+    date: string | number;
+    hours: string | number;
+    minutes: string | number;
+    seconds: string | number;
 
     /** Whether the schedule should run only once. */
     readonly once: boolean;
@@ -104,6 +106,7 @@ export class ScheduleInfo implements DateTimeLike {
      */
     private parseDateTime(pattern: string): void {
         let parts = pattern.split(/\s+/);
+        let endings = ["st", "nd", "rd", "th"]; // e.g. 1st, 2nd, 3rd 4th
 
         for (let part of parts) {
             let nums: string[],
@@ -139,18 +142,21 @@ export class ScheduleInfo implements DateTimeLike {
                     continue;
                 }
 
-                let _part = trimRight(part, ".");
+                let _part = trimRight(part, "."); // e.g. Mon. => Mon
                 i = Months.indexOf(_part);
                 if (i >= 0) {
                     this.month = i + 1;
                     continue;
                 }
 
-                if (part.substring(part.length - 2) === "th") {
+                let ending = part.substring(part.length - 2);
+                let isNum = !isNaN(<any>part);
+
+                if (endings.includes(ending) || (isNum && part.length == 2)) { // match date
                     let num = parseInt(part) || -1;
                     if (this.date === undefined && num >= 1 && num <= 31)
                         this.date = num;
-                } else if (!isNaN(<any>part)) {
+                } else if (isNum) { // match year
                     let num = parseInt(part) || -1;
                     if (this.year === undefined && num >= 1970)
                         this.year = num;
@@ -160,7 +166,7 @@ export class ScheduleInfo implements DateTimeLike {
     }
 
     /** @private */
-    private setProp(prop: string, val: StrOrNum) {
+    private setProp(prop: string, val: string | number) {
         if (typeof val == "number") {
             let min = Beginnings[prop],
                 max = Endings[prop];
@@ -173,14 +179,14 @@ export class ScheduleInfo implements DateTimeLike {
 
 
     /** @private */
-    private setDate(year: StrOrNum, month: StrOrNum, date: StrOrNum) {
+    private setDate(year: string | number, month: string | number, date: string | number) {
         this.setProp("year", year);
         this.setProp("month", month);
         this.setProp("date", date);
     }
 
     /** @private */
-    private setTime(hours: StrOrNum, minutes: StrOrNum, seconds: StrOrNum) {
+    private setTime(hours: string | number, minutes: string | number, seconds: string | number) {
         this.setProp("hours", hours);
         this.setProp("minutes", minutes);
         this.setProp("seconds", seconds);
@@ -208,16 +214,19 @@ export class ScheduleInfo implements DateTimeLike {
             let year: number;
             let month: number;
 
+            // month
             if (tick.month === undefined || isWildcard(tick.month))
                 month = current.month;
             else
                 month = <number>tick.month;
 
+            // year
             if (tick.year === undefined || isWildcard(tick.year))
                 year = current.year;
             else
                 year = <number>tick.year;
 
+            // date
             if (month == 2) {
                 if (year % 4 && tick.date > 28) {
                     this.correctDate(tick, 28, current, force);
@@ -525,7 +534,12 @@ export class ScheduleInfo implements DateTimeLike {
         let { year, month, date, hours, minutes, seconds } = tick;
         let target = new Date(year, month - 1, date, hours, minutes, seconds);
         let step = lastProp.value || 1;
-        return (target.getTime() - now.getTime()) * step;
+        let timeout = (target.getTime() - now.getTime()) * step;
+
+        // when timeout is out limit, use the limit number instead.
+        timeout = timeout > TimeoutLimit ? TimeoutLimit : timeout;
+
+        return timeout;
     }
 }
 

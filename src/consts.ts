@@ -57,3 +57,5 @@ export const Endings: DateTime = {
 export const Props = Object.keys(Beginnings);
 
 export const ReversedProps = Object.keys(Beginnings).reverse();
+
+export const TimeoutLimit = Math.pow(2, 31) - 1;

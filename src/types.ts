@@ -1,22 +1,20 @@
-export type StrOrNum = string | number;
-
 export interface DateTimeLike {
     /** 2018+. */
-    year?: StrOrNum;
+    year?: string | number;
     /** Week of year, `1` - `52`. */
-    week?: StrOrNum;
+    week?: string | number;
     /** Day of week, `1` - `7`, `7` represents Sunday. */
-    day?: StrOrNum;
+    day?: string | number;
     /** `1` - `12`. */
-    month?: StrOrNum;
+    month?: string | number;
     /** Day of month, `1` - `31`. */
-    date?: StrOrNum;
+    date?: string | number;
     /** `0` - `23`. */
-    hours?: StrOrNum;
+    hours?: string | number;
     /** `0` - `59`. */
-    minutes?: StrOrNum;
+    minutes?: string | number;
     /** `0` - `59`. */
-    seconds?: StrOrNum;
+    seconds?: string | number;
 }
 
 export interface DateTime extends DateTimeLike {

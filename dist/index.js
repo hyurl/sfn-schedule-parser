@@ -54,6 +54,7 @@ class ScheduleInfo {
     }
     parseDateTime(pattern) {
         let parts = pattern.split(/\s+/);
+        let endings = ["st", "nd", "rd", "th"];
         for (let part of parts) {
             let nums, isDate = false, isTime = false;
             if (part.indexOf(":") > 0) {
@@ -92,12 +93,14 @@ class ScheduleInfo {
                     this.month = i + 1;
                     continue;
                 }
-                if (part.substring(part.length - 2) === "th") {
+                let ending = part.substring(part.length - 2);
+                let isNum = !isNaN(part);
+                if (endings.includes(ending) || (isNum && part.length == 2)) {
                     let num = parseInt(part) || -1;
                     if (this.date === undefined && num >= 1 && num <= 31)
                         this.date = num;
                 }
-                else if (!isNaN(part)) {
+                else if (isNum) {
                     let num = parseInt(part) || -1;
                     if (this.year === undefined && num >= 1970)
                         this.year = num;
@@ -418,7 +421,9 @@ class ScheduleInfo {
         let { year, month, date, hours, minutes, seconds } = tick;
         let target = new Date(year, month - 1, date, hours, minutes, seconds);
         let step = lastProp.value || 1;
-        return (target.getTime() - now.getTime()) * step;
+        let timeout = (target.getTime() - now.getTime()) * step;
+        timeout = timeout > consts_1.TimeoutLimit ? consts_1.TimeoutLimit : timeout;
+        return timeout;
     }
 }
 exports.ScheduleInfo = ScheduleInfo;

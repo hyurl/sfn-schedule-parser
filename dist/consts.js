@@ -49,4 +49,5 @@ exports.Endings = {
 };
 exports.Props = Object.keys(exports.Beginnings);
 exports.ReversedProps = Object.keys(exports.Beginnings).reverse();
+exports.TimeoutLimit = Math.pow(2, 31) - 1;
 //# sourceMappingURL=consts.js.map

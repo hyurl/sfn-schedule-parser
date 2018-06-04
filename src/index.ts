@@ -459,7 +459,7 @@ export class ScheduleInfo implements DateTimeLike {
                 this.correctTick(tick, prop, current);
             } else {
                 let [prop1, num1] = wildcard1;
-                let [prop2, num2] = wildcard2;
+                let prop2 = wildcard2[0];
                 let _tick = Object.assign({}, tick);
 
                 _tick[prop1] = current[prop1] + num1;

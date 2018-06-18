@@ -1,4 +1,5 @@
-import { trimRight } from "string-trimmer";
+import trimRight = require("lodash/trimEnd");
+import assign = require("lodash/assign");
 import { DateTimeLike, DateTime } from "./types";
 import {
     currentWeek,
@@ -26,6 +27,17 @@ function getNum(str: string): string | number {
     } else {
         let num = parseInt(str);
         return isNaN(num) ? -1 : num;
+    }
+}
+
+function getPrevUsedProp(current: string, tick: DateTimeLike): string {
+    let started = false;
+
+    for (let prop of ReversedProps) {
+        if (started && tick[prop] != undefined)
+            return prop;
+        else if (prop == current)
+            started = true;
     }
 }
 
@@ -152,7 +164,7 @@ export class ScheduleInfo implements DateTimeLike {
                 let ending = part.substring(part.length - 2);
                 let isNum = !isNaN(<any>part);
 
-                if (endings.includes(ending) || (isNum && part.length == 2)) { // match date
+                if (endings.indexOf(ending) >= 0 || (isNum && part.length == 2)) { // match date
                     let num = parseInt(part) || -1;
                     if (this.date === undefined && num >= 1 && num <= 31)
                         this.date = num;
@@ -233,7 +245,7 @@ export class ScheduleInfo implements DateTimeLike {
                 } else if (tick.date > 29) {
                     this.correctDate(tick, 29, current, force);
                 }
-            } else if (BigMonths.includes(month) && <number>tick.date > 31) {
+            } else if (BigMonths.indexOf(month) >= 0 && <number>tick.date > 31) {
                 this.correctDate(tick, 31, current, force);
             } else if (<number>tick.date > 30) {
                 this.correctDate(tick, 30, current, force);
@@ -266,7 +278,7 @@ export class ScheduleInfo implements DateTimeLike {
      *  parseStatement('in 2 hours')
      *  parseStatement('after 2 hours')
      *  parseStatement('every day')
-     *  parseStatement('every Monday') // Monday, not Mon or monday.
+     *  parseStatement('every Monday') // Monday, not Mon or Monday.
      *  parseStatement('tomorrow')
      *  parseStatement('the day after tomorrow')
      *  parseStatement('the day after 2 days')
@@ -347,10 +359,10 @@ export class ScheduleInfo implements DateTimeLike {
             if (num === -1)
                 continue;
 
-            if (num >= 1 && units1.includes(unit)) {
+            if (num >= 1 && units1.indexOf(unit) >= 0) {
                 // plural to singular
                 unit = unit.substring(0, unit.length - 1);
-            } else if (num === 1 && units2.includes(unit)) {
+            } else if (num === 1 && units2.indexOf(unit) >= 0) {
                 unit += "s"; // singular to plural
             }
 
@@ -436,7 +448,13 @@ export class ScheduleInfo implements DateTimeLike {
             } else if (typeof this[prop] == "number") {
                 tick[prop] = this[prop];
             } else if (isWildcard(this[prop])) {
-                let num = parseInt((<string>this[prop]).split("/")[1]) || 1;
+                let num = parseInt((<string>this[prop]).split("/")[1]);
+
+                if (isNaN(num)) {
+                    let _prop = getPrevUsedProp(prop, this);
+                    num = !_prop || tick[_prop] >  current[_prop] ? 1 : 0;
+                }
+
                 if (wildcard1 === undefined) {
                     wildcard1 = [prop, num];
                     tick[prop] = Beginnings[prop];
@@ -459,8 +477,8 @@ export class ScheduleInfo implements DateTimeLike {
                 this.correctTick(tick, prop, current);
             } else {
                 let [prop1, num1] = wildcard1;
-                let [prop2, num2] = wildcard2;
-                let _tick = Object.assign({}, tick);
+                let prop2 = wildcard2[0];
+                let _tick = assign({}, tick);
 
                 _tick[prop1] = current[prop1] + num1;
                 _tick[prop2] = current[prop2];
@@ -503,7 +521,7 @@ export class ScheduleInfo implements DateTimeLike {
     }
 
     /** Gets the best timeout value according to the schedule information. */
-    getBestTimeout(deviation = 0): number {
+    getBestTimeout(): number {
         let now = new Date();
         let tick = getCurrentTick(now);
         /** Last available property. */
@@ -561,7 +579,7 @@ export class ScheduleInfo implements DateTimeLike {
  *  parse('in 2 hours')
  *  parse('after 2 hours')
  *  parse('every day')
- *  parse('every Monday') // Monday, not Mon or monday.
+ *  parse('every Monday') // Monday, not Mon or Monday.
  *  parse('tomorrow')
  *  parse('the day after tomorrow')
  *  parse('the day after 2 days')
@@ -571,3 +589,5 @@ export class ScheduleInfo implements DateTimeLike {
 export function parse(pattern: string): ScheduleInfo {
     return new ScheduleInfo(pattern);
 }
+
+export default parse;

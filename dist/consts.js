@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const currentWeekNumber = require("current-week-number");
+var currentWeekNumber = require("current-week-number");
 exports.currentWeek = currentWeekNumber;
 exports.Months = [
     "Jan",

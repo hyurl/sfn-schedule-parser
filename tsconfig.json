@@ -1,17 +1,15 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "target": "ES2015",
+        "target": "ES5",
         "preserveConstEnums": true,
         "rootDir": "src/",
         "outDir": "dist/",
         "newLine": "LF",
         "removeComments": true,
         "sourceMap": true,
-        "lib": [
-            "es2015",
-            "es2016.array.include"
-        ]
+        "noUnusedLocals": true,
+        "noUnusedParameters": true
     },
     "files": [
         "src/index.ts"

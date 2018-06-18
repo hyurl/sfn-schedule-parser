@@ -23,7 +23,12 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@types/lodash": "^4.14.108",
     "current-week-number": "^1.0.7",
+    "lodash": "^4.17.10",
     "string-trimmer": "^1.0.1"
+  },
+  "devDependencies": {
+    "mocha": "^5.1.1"
   }
 }

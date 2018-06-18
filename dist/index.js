@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const string_trimmer_1 = require("string-trimmer");
-const consts_1 = require("./consts");
+var trimRight = require("lodash/trimEnd");
+var assign = require("lodash/assign");
+var consts_1 = require("./consts");
 function isWildcard(data) {
     return typeof data == "string" && data[0] == "*";
 }
@@ -13,13 +14,23 @@ function getNum(str) {
         return str;
     }
     else {
-        let num = parseInt(str);
+        var num = parseInt(str);
         return isNaN(num) ? -1 : num;
+    }
+}
+function getPrevUsedProp(current, tick) {
+    var started = false;
+    for (var _i = 0, ReversedProps_1 = consts_1.ReversedProps; _i < ReversedProps_1.length; _i++) {
+        var prop = ReversedProps_1[_i];
+        if (started && tick[prop] != undefined)
+            return prop;
+        else if (prop == current)
+            started = true;
     }
 }
 function getCurrentTick(date) {
     date = date || new Date();
-    let day = date.getDay();
+    var day = date.getDay();
     return {
         year: date.getFullYear(),
         week: consts_1.currentWeek(date),
@@ -32,17 +43,19 @@ function getCurrentTick(date) {
     };
 }
 exports.getCurrentTick = getCurrentTick;
-class ScheduleInfo {
-    constructor(pattern) {
-        for (let prop of consts_1.Props) {
+var ScheduleInfo = (function () {
+    function ScheduleInfo(pattern) {
+        for (var _i = 0, Props_1 = consts_1.Props; _i < Props_1.length; _i++) {
+            var prop = Props_1[_i];
             this[prop] = undefined;
         }
-        let current = getCurrentTick();
+        var current = getCurrentTick();
         this.parseDateTime(pattern);
         this.parseStatement(pattern, current);
         this.once = true;
         this.nextTick = this.getNextTick(current);
-        for (let prop of consts_1.Props) {
+        for (var _a = 0, Props_2 = consts_1.Props; _a < Props_2.length; _a++) {
+            var prop = Props_2[_a];
             if (isWildcard(this[prop])) {
                 this.once = false;
                 break;
@@ -52,11 +65,12 @@ class ScheduleInfo {
             throw new RangeError("Schedule pattern is already expired.");
         }
     }
-    parseDateTime(pattern) {
-        let parts = pattern.split(/\s+/);
-        let endings = ["st", "nd", "rd", "th"];
-        for (let part of parts) {
-            let nums, isDate = false, isTime = false;
+    ScheduleInfo.prototype.parseDateTime = function (pattern) {
+        var parts = pattern.split(/\s+/);
+        var endings = ["st", "nd", "rd", "th"];
+        for (var _i = 0, parts_1 = parts; _i < parts_1.length; _i++) {
+            var part = parts_1[_i];
+            var nums = void 0, isDate = false, isTime = false;
             if (part.indexOf(":") > 0) {
                 nums = part.split(":");
                 isTime = true;
@@ -66,9 +80,9 @@ class ScheduleInfo {
                 isDate = true;
             }
             if (isDate || isTime) {
-                let num1 = getNum(nums[0]);
-                let num2 = getNum(nums[1]);
-                let num3 = getNum(nums[2]);
+                var num1 = getNum(nums[0]);
+                var num2 = getNum(nums[1]);
+                var num3 = getNum(nums[2]);
                 if (isDate) {
                     if (typeof num3 === "number" && num3 > 31 || num3 === -1) {
                         this.setDate(num3, num1, num2);
@@ -82,53 +96,54 @@ class ScheduleInfo {
                 }
             }
             else {
-                let i = consts_1.Weekdays2.indexOf(part);
+                var i = consts_1.Weekdays2.indexOf(part);
                 if (i >= 0) {
                     this.day = i + 1;
                     continue;
                 }
-                let _part = string_trimmer_1.trimRight(part, ".");
+                var _part = trimRight(part, ".");
                 i = consts_1.Months.indexOf(_part);
                 if (i >= 0) {
                     this.month = i + 1;
                     continue;
                 }
-                let ending = part.substring(part.length - 2);
-                let isNum = !isNaN(part);
-                if (endings.includes(ending) || (isNum && part.length == 2)) {
-                    let num = parseInt(part) || -1;
+                var ending = part.substring(part.length - 2);
+                var isNum = !isNaN(part);
+                if (endings.indexOf(ending) >= 0 || (isNum && part.length == 2)) {
+                    var num = parseInt(part) || -1;
                     if (this.date === undefined && num >= 1 && num <= 31)
                         this.date = num;
                 }
                 else if (isNum) {
-                    let num = parseInt(part) || -1;
+                    var num = parseInt(part) || -1;
                     if (this.year === undefined && num >= 1970)
                         this.year = num;
                 }
             }
         }
-    }
-    setProp(prop, val) {
+    };
+    ScheduleInfo.prototype.setProp = function (prop, val) {
         if (typeof val == "number") {
-            let min = consts_1.Beginnings[prop], max = consts_1.Endings[prop];
+            var min = consts_1.Beginnings[prop], max = consts_1.Endings[prop];
             this[prop] = (val >= min && val <= max) ? val : undefined;
         }
         else if (isWildcard(val)) {
             this[prop] = val;
         }
-    }
-    setDate(year, month, date) {
+    };
+    ScheduleInfo.prototype.setDate = function (year, month, date) {
         this.setProp("year", year);
         this.setProp("month", month);
         this.setProp("date", date);
-    }
-    setTime(hours, minutes, seconds) {
+    };
+    ScheduleInfo.prototype.setTime = function (hours, minutes, seconds) {
         this.setProp("hours", hours);
         this.setProp("minutes", minutes);
         this.setProp("seconds", seconds);
-    }
-    correctDate(tick, num, current, force = false) {
-        let date = tick.date;
+    };
+    ScheduleInfo.prototype.correctDate = function (tick, num, current, force) {
+        if (force === void 0) { force = false; }
+        var date = tick.date;
         if (isWildcard(this.month) && typeof tick.month == "number") {
             tick.month = tick.month + Math.floor(date / num);
         }
@@ -136,15 +151,16 @@ class ScheduleInfo {
             tick.month = current.month + Math.floor(date / num);
         }
         tick.date = date % num;
-    }
-    correctTick(tick, prop, current, force = false) {
+    };
+    ScheduleInfo.prototype.correctTick = function (tick, prop, current, force) {
+        if (force === void 0) { force = false; }
         current = current || getCurrentTick();
-        let ending = consts_1.Endings[prop];
+        var ending = consts_1.Endings[prop];
         if (prop == "date") {
             if (typeof tick.date != "number")
                 return;
-            let year;
-            let month;
+            var year = void 0;
+            var month = void 0;
             if (tick.month === undefined || isWildcard(tick.month))
                 month = current.month;
             else
@@ -161,7 +177,7 @@ class ScheduleInfo {
                     this.correctDate(tick, 29, current, force);
                 }
             }
-            else if (consts_1.BigMonths.includes(month) && tick.date > 31) {
+            else if (consts_1.BigMonths.indexOf(month) >= 0 && tick.date > 31) {
                 this.correctDate(tick, 31, current, force);
             }
             else if (tick.date > 30) {
@@ -169,7 +185,7 @@ class ScheduleInfo {
             }
         }
         else if (typeof tick[prop] == "number" && tick[prop] > ending) {
-            let i = consts_1.ReversedProps.indexOf(prop), step = prop == "month" ? 3 : 1, prev = consts_1.ReversedProps[i + step];
+            var i = consts_1.ReversedProps.indexOf(prop), step = prop == "month" ? 3 : 1, prev = consts_1.ReversedProps[i + step];
             ending = (prop == "day" || prop == "month") ? ending : ending + 1;
             if (prev && isWildcard(this[prev]) && tick[prop] <= current[prop]) {
                 tick[prev] += Math.floor(tick[prop] / ending);
@@ -179,12 +195,12 @@ class ScheduleInfo {
             }
             tick[prop] %= ending;
         }
-    }
-    parseStatement(pattern, current) {
+    };
+    ScheduleInfo.prototype.parseStatement = function (pattern, current) {
         current = current || getCurrentTick();
-        let units1 = ["days", "months", "years", "weeks"];
-        let units2 = ["hour", "minute", "second"];
-        let matches = [
+        var units1 = ["days", "months", "years", "weeks"];
+        var units2 = ["hour", "minute", "second"];
+        var matches = [
             pattern.match(/(on)\s+(\w+)/),
             pattern.match(/(every)\s+(\w+)/),
             pattern.match(/(in|after)\s+(this|next|\d+)\s+(\w+)/),
@@ -192,17 +208,18 @@ class ScheduleInfo {
             pattern.match(/today|tomorrow|the\s+(\w+)\s+after\s+(.+)/),
             pattern.match(/(this|next)\s+(\w+)/)
         ];
-        for (let match of matches) {
+        for (var _i = 0, matches_1 = matches; _i < matches_1.length; _i++) {
+            var match = matches_1[_i];
             if (!match)
                 continue;
-            let prep;
-            let num;
-            let unit;
-            let prop;
+            var prep = void 0;
+            var num = void 0;
+            var unit = void 0;
+            var prop = void 0;
             if (match.length === 4) {
                 prep = match[1];
                 unit = match[3];
-                let target = match[2];
+                var target = match[2];
                 if (target === "this")
                     num = 0;
                 else if (target === "next")
@@ -230,7 +247,7 @@ class ScheduleInfo {
                     num = 2;
                 }
                 else {
-                    let parts = match[2].split(/\s+/);
+                    var parts = match[2].split(/\s+/);
                     if (parts[0] === "this")
                         num = 0;
                     else if (parts[0] === "next")
@@ -243,7 +260,7 @@ class ScheduleInfo {
             }
             prep = prep || "in";
             unit = unit || "day";
-            let i = consts_1.Weekdays.indexOf(unit);
+            var i = consts_1.Weekdays.indexOf(unit);
             if (i >= 0) {
                 this.day = i + 1;
                 if (prep == "every") {
@@ -257,10 +274,10 @@ class ScheduleInfo {
             }
             if (num === -1)
                 continue;
-            if (num >= 1 && units1.includes(unit)) {
+            if (num >= 1 && units1.indexOf(unit) >= 0) {
                 unit = unit.substring(0, unit.length - 1);
             }
-            else if (num === 1 && units2.includes(unit)) {
+            else if (num === 1 && units2.indexOf(unit) >= 0) {
                 unit += "s";
             }
             if (unit == "day") {
@@ -277,8 +294,8 @@ class ScheduleInfo {
                     this.correctTick(this, prop, current, true);
                 }
                 else if (prep == "every") {
-                    this[prop] = num == 1 ? "*" : `*/${num}`;
-                    for (let j = i - 1; j >= 0; j--) {
+                    this[prop] = num == 1 ? "*" : "*/" + num;
+                    for (var j = i - 1; j >= 0; j--) {
                         if (this[consts_1.Props[j]] !== undefined)
                             break;
                         else
@@ -287,20 +304,20 @@ class ScheduleInfo {
                 }
             }
         }
-    }
-    getState() {
-        let current = getCurrentTick();
-        let state = this.realGetState(current);
+    };
+    ScheduleInfo.prototype.getState = function () {
+        var current = getCurrentTick();
+        var state = this.realGetState(current);
         if (state <= 0)
             this.nextTick = this.getNextTick(current);
         return state;
-    }
-    realGetState(current, tick) {
+    };
+    ScheduleInfo.prototype.realGetState = function (current, tick) {
         current = current || getCurrentTick();
         tick = tick || this.nextTick;
-        let state = -1;
-        for (let i in consts_1.Props) {
-            let prop = consts_1.Props[i];
+        var state = -1;
+        for (var i in consts_1.Props) {
+            var prop = consts_1.Props[i];
             if (tick[prop] === undefined) {
                 continue;
             }
@@ -317,15 +334,16 @@ class ScheduleInfo {
             }
         }
         return state;
-    }
-    getNextTick(current) {
+    };
+    ScheduleInfo.prototype.getNextTick = function (current) {
         current = current || getCurrentTick();
         consts_1.Beginnings.year = current.year + 1;
-        let tick = {};
-        let wildcard1;
-        let wildcard2;
-        let wildcard3;
-        for (let prop of consts_1.ReversedProps) {
+        var tick = {};
+        var wildcard1;
+        var wildcard2;
+        var wildcard3;
+        for (var _i = 0, ReversedProps_2 = consts_1.ReversedProps; _i < ReversedProps_2.length; _i++) {
+            var prop = ReversedProps_2[_i];
             if (this[prop] === undefined) {
                 continue;
             }
@@ -333,7 +351,11 @@ class ScheduleInfo {
                 tick[prop] = this[prop];
             }
             else if (isWildcard(this[prop])) {
-                let num = parseInt(this[prop].split("/")[1]) || 1;
+                var num = parseInt(this[prop].split("/")[1]);
+                if (isNaN(num)) {
+                    var _prop = getPrevUsedProp(prop, this);
+                    num = !_prop || tick[_prop] > current[_prop] ? 1 : 0;
+                }
                 if (wildcard1 === undefined) {
                     wildcard1 = [prop, num];
                     tick[prop] = consts_1.Beginnings[prop];
@@ -352,14 +374,14 @@ class ScheduleInfo {
         }
         if (wildcard1) {
             if (wildcard2 === undefined) {
-                let [prop, num] = wildcard1;
+                var prop = wildcard1[0], num = wildcard1[1];
                 tick[prop] = current[prop] + num;
                 this.correctTick(tick, prop, current);
             }
             else {
-                let [prop1, num1] = wildcard1;
-                let [prop2, num2] = wildcard2;
-                let _tick = Object.assign({}, tick);
+                var prop1 = wildcard1[0], num1 = wildcard1[1];
+                var prop2 = wildcard2[0];
+                var _tick = assign({}, tick);
                 _tick[prop1] = current[prop1] + num1;
                 _tick[prop2] = current[prop2];
                 this.correctTick(tick, prop1, current);
@@ -369,66 +391,68 @@ class ScheduleInfo {
                 else if (this.realGetState(current, tick) === -1) {
                     tick[prop2] = consts_1.Beginnings[prop2];
                     if (wildcard3) {
-                        let [prop3] = wildcard3;
+                        var prop3 = wildcard3[0];
                         tick[prop3] = consts_1.Beginnings[prop3];
                     }
                 }
             }
         }
         return tick;
-    }
-    getBestInterval() {
-        let intervals = {
+    };
+    ScheduleInfo.prototype.getBestInterval = function () {
+        var intervals = {
             seconds: 1000,
             minutes: 1000 * 60,
             hours: 1000 * 60 * 60,
             date: 1000 * 60 * 60 * 24,
             week: 1000 * 60 * 60 * 24 * 7,
         };
-        let interval;
-        for (let prop in intervals) {
+        var interval;
+        for (var prop in intervals) {
             if (this[prop] !== undefined) {
                 interval = intervals[prop];
                 break;
             }
         }
         return interval || intervals.week;
-    }
-    getBestTimeout(deviation = 0) {
-        let now = new Date();
-        let tick = getCurrentTick(now);
-        let lastProp;
-        for (let i in consts_1.ReversedProps) {
-            let prop = consts_1.ReversedProps[i];
-            if (this.nextTick[prop] !== undefined) {
-                tick[prop] = this.nextTick[prop];
+    };
+    ScheduleInfo.prototype.getBestTimeout = function () {
+        var now = new Date();
+        var tick = getCurrentTick(now);
+        var lastProp;
+        for (var i_1 in consts_1.ReversedProps) {
+            var prop_1 = consts_1.ReversedProps[i_1];
+            if (this.nextTick[prop_1] !== undefined) {
+                tick[prop_1] = this.nextTick[prop_1];
                 if (!lastProp) {
-                    lastProp = { name: prop };
-                    if (isWildcard(this[prop])) {
-                        let val = this[prop].split("/")[0] || "1";
+                    lastProp = { name: prop_1 };
+                    if (isWildcard(this[prop_1])) {
+                        var val = this[prop_1].split("/")[0] || "1";
                         lastProp.value = parseInt(val);
                     }
                 }
             }
-            else if (this.nextTick[prop] === undefined && !lastProp) {
-                tick[prop] = consts_1.Beginnings[prop];
+            else if (this.nextTick[prop_1] === undefined && !lastProp) {
+                tick[prop_1] = consts_1.Beginnings[prop_1];
             }
         }
-        let i = consts_1.Props.lastIndexOf(lastProp.name);
-        let prop = consts_1.Props[i + 1];
+        var i = consts_1.Props.lastIndexOf(lastProp.name);
+        var prop = consts_1.Props[i + 1];
         if (prop !== undefined)
             tick[prop] = consts_1.Beginnings[prop];
-        let { year, month, date, hours, minutes, seconds } = tick;
-        let target = new Date(year, month - 1, date, hours, minutes, seconds);
-        let step = lastProp.value || 1;
-        let timeout = (target.getTime() - now.getTime()) * step;
+        var year = tick.year, month = tick.month, date = tick.date, hours = tick.hours, minutes = tick.minutes, seconds = tick.seconds;
+        var target = new Date(year, month - 1, date, hours, minutes, seconds);
+        var step = lastProp.value || 1;
+        var timeout = (target.getTime() - now.getTime()) * step;
         timeout = timeout > consts_1.TimeoutLimit ? consts_1.TimeoutLimit : timeout;
         return timeout;
-    }
-}
+    };
+    return ScheduleInfo;
+}());
 exports.ScheduleInfo = ScheduleInfo;
 function parse(pattern) {
     return new ScheduleInfo(pattern);
 }
 exports.parse = parse;
+exports.default = parse;
 //# sourceMappingURL=index.js.map

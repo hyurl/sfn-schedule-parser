@@ -478,7 +478,11 @@ export class ScheduleInfo implements DateTimeLike {
             } else {
                 let [prop1, num1] = wildcard1;
                 let prop2 = wildcard2[0];
+<<<<<<< HEAD
                 let _tick = assign({}, tick);
+=======
+                let _tick = Object.assign({}, tick);
+>>>>>>> d4e158353112ad07d13097e3da556091c7b4341e
 
                 _tick[prop1] = current[prop1] + num1;
                 _tick[prop2] = current[prop2];
@@ -589,5 +593,8 @@ export class ScheduleInfo implements DateTimeLike {
 export function parse(pattern: string): ScheduleInfo {
     return new ScheduleInfo(pattern);
 }
+<<<<<<< HEAD
 
 export default parse;
+=======
+>>>>>>> d4e158353112ad07d13097e3da556091c7b4341e

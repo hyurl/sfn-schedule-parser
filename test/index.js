@@ -8,6 +8,7 @@ describe("parse(pattern: string): ScheduleInfo", function () {
     var date = new Date,
         pattern1 = "runs at 8:00 every day",
         expected1 = assign(Object.create(ScheduleInfo.prototype), {
+            pattern: pattern1,
             date: "*",
             hours: 8,
             minutes: 0,
@@ -28,6 +29,7 @@ describe("parse(pattern: string): ScheduleInfo", function () {
 
     var pattern2 = "runs at 8:00 today",
         expected2 = assign(Object.create(ScheduleInfo.prototype), {
+            pattern: pattern2,
             date: new Date().getDate(),
             hours: 8,
             minutes: 0,

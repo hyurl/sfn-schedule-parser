@@ -1,8 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-var currentWeekNumber = require("current-week-number");
-exports.currentWeek = currentWeekNumber;
 exports.Months = [
+    undefined,
     "Jan",
     "Feb",
     "Mar",
@@ -18,18 +17,17 @@ exports.Months = [
 ];
 exports.BigMonths = [1, 3, 5, 7, 8, 10, 12];
 exports.Weekdays = [
+    "Sunday",
     "Monday",
     "Tuesday",
     "Wednesday",
     "Thursday",
     "Friday",
-    "Saturday",
-    "Sunday"
+    "Saturday"
 ];
-exports.Weekdays2 = ["Mon", "Tues", "Wed", "Thurs", "Fri", "Sat", "Sun"];
+exports.Weekdays2 = ["Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"];
 exports.Beginnings = {
     year: 1970,
-    week: 1,
     day: 1,
     month: 1,
     date: 1,
@@ -39,7 +37,6 @@ exports.Beginnings = {
 };
 exports.Endings = {
     year: 9999,
-    week: 52,
     day: 7,
     month: 12,
     date: 31,

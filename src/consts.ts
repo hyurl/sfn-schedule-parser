@@ -1,9 +1,7 @@
-import currentWeekNumber = require("current-week-number");
 import { DateTime } from "./types";
 
-export const currentWeek: (date?: string | Date) => number = currentWeekNumber;
-
 export const Months = [
+    undefined,
     "Jan",
     "Feb",
     "Mar",
@@ -21,20 +19,19 @@ export const Months = [
 export const BigMonths = [1, 3, 5, 7, 8, 10, 12];
 
 export const Weekdays = [
+    "Sunday",
     "Monday",
     "Tuesday",
     "Wednesday",
     "Thursday",
     "Friday",
-    "Saturday",
-    "Sunday"
+    "Saturday"
 ];
 
-export const Weekdays2 = ["Mon", "Tues", "Wed", "Thurs", "Fri", "Sat", "Sun"];
+export const Weekdays2 = ["Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"];
 
 export const Beginnings: DateTime = {
     year: 1970,
-    week: 1,
     day: 1,
     month: 1,
     date: 1,
@@ -45,7 +42,6 @@ export const Beginnings: DateTime = {
 
 export const Endings: DateTime = {
     year: 9999,
-    week: 52,
     day: 7,
     month: 12,
     date: 31,

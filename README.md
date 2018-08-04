@@ -1,9 +1,10 @@
 # SFN-Schedule-Parser
 
-**A simple friendly Node.js tool for parsing schedule string patterns.**
+**A simple friendly Node.js tool for parsing schedule string patterns in human language.**
 
-**Notice:** this is not a schedule tool, it just exposes a common API, so that 
-developers can build schedulers according to the API.
+**Notice:** this is not a ready-to-use scheduler tool, it just exposes a 
+simple, friendly and common API, so that developers can build schedulers 
+according to the API.
 
 ## Install
 
@@ -46,32 +47,24 @@ console.log(parse('2018-*/2-*/5')) // every 2 months and every 5 days.
 
 ## Returning Values
 
-The `parse()` function returns an `ScheduleInfo` that carries these 
-information:
+The `parse()` function returns a `ScheduleInfo` that carries information of:
 
-- `year: number | string` 2018+.
-- `week: number | string` Week of year, 1 - 52.
-- `day: number | string` Day of week, 1 - 7, 7 represents Sunday.
-- `month: number | string` 1 - 12.
-- `date: number | string` Day of month, 1 - 31.
-- `hours: number | string` 0 - 23.
-- `minutes: number | string` 0 - 59.
-- `seconds: number | string` 0 - 59.
-- `once` Whether the schedule should run only once.
-
-If any of these properties isn't set, it's value would be `undefined`.
+- `year?: number | string` 2018+.
+- `day?: number | string` Day of week, 0 - 6, 0 represents Sunday.
+- `month?: number | string` 1 - 12.
+- `date?: number | string` Day of month, 1 - 31.
+- `hours?: number | string` 0 - 23.
+- `minutes?: number | string` 0 - 59.
+- `seconds?: number | string` 0 - 59.
+- `once: bool` Whether the schedule should run only once.
 
 **Warning:** if the schedule pattern is already expired, an `RangeError` will
-be thrown, the scheduler may or may not catch this error, but the scheduler 
-must not start in the situation.
+be thrown, the scheduler may or may not catch this error, but it must not 
+start any job in this situation.
 
-**Tip:** there should be only one `every...` phrase in the pattern, however, 
-there could be any number of `*/<num>` specified. The future version may fix 
-this problem, but for now, don't use more than one `every...` phrase.
+## The state of a schedule
 
-### The state of a schedule
-
-The method `getState()` returns the position of the schedule, possible 
+The method `getState()` returns the state of the schedule, possible 
 values are:
 
 - `-1` expired, the schedule should stop now.
@@ -83,11 +76,17 @@ interval/timeout value calculated according to the schedule information, so
 that the scheduler doesn't need to check the state every second when not 
 necessary.
 
+## Whether the schedule should run only once or more than once?
+
+You can check this condition by accessing to the read-only property `once`, if
+it returns `true`, that means the callback function of the schedule should run
+only once, and after that, the scheduler must turn off. 
+
 ## How to build a scheduler?
 
-In JavaScript, you could use `setInterval()`, `setTimeout()` or 
+In JavaScript, you could use `setInterval()`, `setTimeout()`, or 
 `process.nextTick()` in Node.js to build a scheduler, checking the date-time 
-within proper period, and run any callbacks when the certain time arrives.
+within proper period, and run any callbacks when the time is ripe.
 
 ```javascript
 const { parse } = require("sfn-schedule-parser");
@@ -97,20 +96,43 @@ var interval = schedule.getBestInterval(); // returns the best interval value.
 
 let timer = setInterval(() => {
     let state = schedule.getState();
+
     if (state === 0) {
         // your task...
-
-        if (schedule.once) {
-            // because this schedule runs every day, so `schedule.once` will 
-            // never be true, and this block will never run, just for example.
-            clearInterval(timer);
-        }
     } else if (state === -1) {
         clearInterval(timer);
     }
+    // normally you don't need to do anything when the state is 1.
 }, interval);
 ```
 
 **Warning:** if you're going to use `setTimeout()` or `process.nextTick()`, 
 make sure that your program will hang until the schedule is called at least 
 once, unless you stop it manually.
+
+**Tip:** it's always better to use `setTimeout()` and `getBestTimeout()` in a 
+recursive function to form a scheduler, which will protect memory leak and run
+fewer times of the timer callback function, in which case, more efficient. 
+Look this example:
+
+```javascript
+var schedule = parse("20:00 every day");
+var timer = null;
+var scheduler = () => {
+    let state = schedule.getState();
+
+    if (state === 0) {
+        // your task...
+
+        if (schedule.once == false)
+            start(); // continue the scheduler and waiting for the next timeout.
+    } else if (state === -1) {
+        clearTimeout(timer);
+    }
+};
+var start = () => {
+    timer = setTimeout(scheduler, schedule.getBestTimeout());
+};
+
+start(); // start the scheduler
+```

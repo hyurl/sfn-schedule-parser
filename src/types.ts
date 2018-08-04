@@ -1,9 +1,7 @@
 export interface DateTimeLike {
     /** 2018+. */
     year?: string | number;
-    /** Week of year, `1` - `52`. */
-    week?: string | number;
-    /** Day of week, `1` - `7`, `7` represents Sunday. */
+    /** Day of week, `0` - `6`, `0` represents Sunday. */
     day?: string | number;
     /** `1` - `12`. */
     month?: string | number;
@@ -19,7 +17,6 @@ export interface DateTimeLike {
 
 export interface DateTime extends DateTimeLike {
     year?: number;
-    week?: number;
     day?: number;
     month?: number;
     date?: number;
